@@ -22,16 +22,8 @@ class LinearModule(object):
     
     Also, initialize gradients with zeros.
     """
-    
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    self.params = {'weight': None, 'bias': None}
-    self.grads = {'weight': None, 'bias': None}
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    self.params = {'weight': np.random.normal(0, 0.0001, (in_features, out_features)), 'bias': np.zeros(out_features)}
+    self.grads = {'weight': np.zeros((in_features, out_features)), 'bias': np.zeros(out_features)}
 
   def forward(self, x):
     """
@@ -48,13 +40,10 @@ class LinearModule(object):
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
     
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    out = np.dot(x, self.params['weight']) + self.params['bias']
+
+    self.last_input = x
+    self.last_output = out
 
     return out
 
@@ -72,13 +61,9 @@ class LinearModule(object):
     layer parameters in self.grads['weight'] and self.grads['bias']. 
     """
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    self.grads['bias'] = dout
+    self.grads['weight'] = np.dot(self.last_input, dout) # might need to transpose something here
+    dx = np.dot(self.params['weight'], dout)
     
     return dx
 
@@ -100,14 +85,9 @@ class ReLUModule(object):
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
-
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    
+    self.mask = (x > 0)
+    out = x * mask
 
     return out
 
@@ -124,13 +104,7 @@ class ReLUModule(object):
     Implement backward pass of the module.
     """
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################    
+    dx = np.dot(self.mask, dout)
 
     return dx
 
@@ -152,14 +126,9 @@ class SoftMaxModule(object):
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
-
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    b = np.max(x)
+    xi = np.exp(x - b)
+    out = xi/np.sum(xi, axis=0)
 
     return out
 

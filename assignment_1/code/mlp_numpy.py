@@ -46,7 +46,7 @@ class MLP(object):
       input_size = output_size
 
     ##  Add output modules
-    self.modules += [LinearModule(input_size, n_classes), SoftMaxModule(), CrossEntropyModule()]
+    self.modules += [LinearModule(input_size, n_classes), SoftMaxModule()]
 
 
   def forward(self, x):
