@@ -72,14 +72,27 @@ def train():
     dnn_hidden_units = [int(dnn_hidden_unit_) for dnn_hidden_unit_ in dnn_hidden_units]
   else:
     dnn_hidden_units = []
+  
+  # Get the datasets
+  data = cifar10_utils.get_cifar10()
+  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2], FLAGS.dnn_hidden_units, data['train'].images.shape[3])
+  loss_module = CrossEntropyModule()
 
-  ########################
-  # PUT YOUR CODE HERE  #
-  #######################
-  raise NotImplementedError
-  ########################
-  # END OF YOUR CODE    #
-  #######################
+  # Iterate over the batches
+  for iteration in range(0, FLAGS.max_steps):
+
+    print("Iteration {}...".format(iteration))
+
+    if (iteration%FLAGS.eval_freq == 0):
+      reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2], data['test'].images.shape[3]))
+      probabilities = mlp.forward(reshaped_test)
+      print("Test accuracy:", accuracy(probabilities, data['test'].labels))
+
+    batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
+    reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[2]*batch.shape[3], batch.shape[1]))
+    probabilities = mlp.forward(reshaped_batch)
+    loss = loss_module.forward(probabilities, batch_labels)
+    mlp.backward(loss_module.backward(loss, batch_labels))
 
 def print_flags():
   """
@@ -105,7 +118,7 @@ if __name__ == '__main__':
   # Command line arguments
   parser = argparse.ArgumentParser()
   parser.add_argument('--dnn_hidden_units', type = str, default = DNN_HIDDEN_UNITS_DEFAULT,
-                      help='Comma separated list of number of units in each hidden layer')
+                      help='Comma separated string of number of units in each hidden layer')
   parser.add_argument('--learning_rate', type = float, default = LEARNING_RATE_DEFAULT,
                       help='Learning rate')
   parser.add_argument('--max_steps', type = int, default = MAX_STEPS_DEFAULT,

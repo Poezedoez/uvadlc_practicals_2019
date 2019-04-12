@@ -62,8 +62,8 @@ class LinearModule(object):
     """
 
     self.grads['bias'] = dout
-    self.grads['weight'] = np.dot(self.last_input, dout) # might need to transpose something here
-    dx = np.dot(self.params['weight'], dout)
+    self.grads['weight'] = np.dot(np.transpose(self.last_input), dout) # might need to transpose something here
+    dx = np.dot(dout, self.params['weight'].T)
     
     return dx
 
@@ -87,7 +87,7 @@ class ReLUModule(object):
     """
     
     self.mask = (x > 0)
-    out = x * mask
+    out = x * self.mask
 
     return out
 
@@ -104,8 +104,7 @@ class ReLUModule(object):
     Implement backward pass of the module.
     """
 
-    dx = np.dot(self.mask, dout)
-
+    dx = dout * self.mask
     return dx
 
 class SoftMaxModule(object):
@@ -129,6 +128,7 @@ class SoftMaxModule(object):
     b = np.max(x)
     xi = np.exp(x - b)
     out = xi/np.sum(xi, axis=0)
+    self.last_output = out
 
     return out
 
@@ -144,14 +144,6 @@ class SoftMaxModule(object):
     TODO:
     Implement backward pass of the module.
     """
-
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
 
     return dx
 
@@ -173,13 +165,8 @@ class CrossEntropyModule(object):
     Implement forward pass of the module. 
     """
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    loss_total = -np.sum(np.log(x)*y, axis=1)
+    out = np.mean(loss_total)
 
     return out
 
@@ -197,12 +184,7 @@ class CrossEntropyModule(object):
     Implement backward pass of the module.
     """
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    loss_total = -1/np.sum(x*y, axis=1)
+    dx = np.mean(loss_total)
 
     return dx
