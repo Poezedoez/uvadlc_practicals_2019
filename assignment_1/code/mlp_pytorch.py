@@ -5,6 +5,8 @@ You should fill in code into indicated sections.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import torch.nn as nn
+from collections import OrderedDict
 
 class MLP(nn.Module):
   """
@@ -30,14 +32,23 @@ class MLP(nn.Module):
     TODO:
     Implement initialization of the network.
     """
+    modules = []
+    input_size = n_inputs
+    depth = 1
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    ## Add hidden modules
+    for output_size in n_hidden:
+      modules.append(('Linear{0}'.format(depth), nn.Linear(input_size, output_size).cuda()))
+      modules.append(('Relu{0}'.format(depth), nn.ReLU().cuda()))
+      depth += 1
+      input_size = output_size
+
+    ##  Add output modules
+    modules.append(('Linear{0}'.format(depth), nn.Linear(input_size, n_classes).cuda()))
+    modules.append(('LogSoftMax', nn.LogSoftmax(dim=-1).cuda()))
+
+    self.model = nn.Sequential(OrderedDict(modules)).cuda()
+
 
   def forward(self, x):
     """
@@ -52,13 +63,6 @@ class MLP(nn.Module):
     TODO:
     Implement forward pass of the network.
     """
-
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    out = self.model(x)
 
     return out

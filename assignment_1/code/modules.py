@@ -145,6 +145,8 @@ class SoftMaxModule(object):
     Implement backward pass of the module.
     """
 
+    
+
     return dx
 
 class CrossEntropyModule(object):

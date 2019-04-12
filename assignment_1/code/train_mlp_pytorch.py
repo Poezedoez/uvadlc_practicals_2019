@@ -41,14 +41,9 @@ def accuracy(predictions, targets):
   TODO:
   Implement accuracy computation.
   """
-
-  ########################
-  # PUT YOUR CODE HERE  #
-  #######################
-  raise NotImplementedError
-  ########################
-  # END OF YOUR CODE    #
-  #######################
+  predicted_i = np.argmax(predictions, axis=1)
+  target_i = np.argmax(targets, axis=1)
+  accuracy = np.count_nonzero(predicted_i == target_i)/target_i.length
 
   return accuracy
 
