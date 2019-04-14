@@ -144,9 +144,9 @@ class SoftMaxModule(object):
     TODO:
     Implement backward pass of the module.
     """
-
-    
-
+    batch_mean = np.mean([(np.diagflat(xi)- np.outer(xi, xi)) for xi in self.last_output.T], axis=0)
+    dx = np.dot(batch_mean.T, dout)
+  
     return dx
 
 class CrossEntropyModule(object):
@@ -166,7 +166,6 @@ class CrossEntropyModule(object):
     TODO:
     Implement forward pass of the module. 
     """
-
     loss_total = -np.sum(np.log(x)*y, axis=1)
     out = np.mean(loss_total)
 
@@ -185,8 +184,7 @@ class CrossEntropyModule(object):
     TODO:
     Implement backward pass of the module.
     """
-
-    loss_total = -1/np.sum(x*y, axis=1)
-    dx = np.mean(loss_total)
+    loss_total = -np.divide(y, x)
+    dx = loss_total/x.shape[0]
 
     return dx

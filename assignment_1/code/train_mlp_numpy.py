@@ -43,9 +43,9 @@ def accuracy(predictions, targets):
   Implement accuracy computation.
   """
   
-  predicted_i = np.argmax(predictions, axis=1)
-  target_i = np.argmax(targets, axis=1)
-  accuracy = np.count_nonzero(predicted_i == target_i)/target_i.length
+  predicted = np.argmax(predictions, axis=1)
+  targets = np.argmax(targets, axis=1)
+  accuracy = np.count_nonzero(predicted == targets)/targets.length
 
   return accuracy
 
@@ -71,7 +71,8 @@ def train():
   
   # Get the datasets
   data = cifar10_utils.get_cifar10()
-  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2], FLAGS.dnn_hidden_units, data['train'].images.shape[3])
+  n_classes = data['train'].labels.shape[1]
+  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3], FLAGS.dnn_hidden_units, n_classes)
   loss_module = CrossEntropyModule()
 
   # Iterate over the batches
@@ -80,15 +81,15 @@ def train():
     print("Iteration {}...".format(iteration))
 
     if (iteration%FLAGS.eval_freq == 0):
-      reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2], data['test'].images.shape[3]))
+      reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2]*data['test'].images.shape[3]))
       probabilities = mlp.forward(reshaped_test)
       print("Test accuracy:", accuracy(probabilities, data['test'].labels))
 
     batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
-    reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[2]*batch.shape[3], batch.shape[1]))
+    reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[1]*batch.shape[2]*batch.shape[3]))
     probabilities = mlp.forward(reshaped_batch)
     loss = loss_module.forward(probabilities, batch_labels)
-    mlp.backward(loss_module.backward(loss, batch_labels))
+    mlp.backward(loss_module.backward(probabilities, batch_labels))
 
 def print_flags():
   """

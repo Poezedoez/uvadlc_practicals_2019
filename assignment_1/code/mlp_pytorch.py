@@ -32,6 +32,8 @@ class MLP(nn.Module):
     TODO:
     Implement initialization of the network.
     """
+    super(MLP, self).__init__()
+    
     modules = []
     input_size = n_inputs
     depth = 1
@@ -45,7 +47,6 @@ class MLP(nn.Module):
 
     ##  Add output modules
     modules.append(('Linear{0}'.format(depth), nn.Linear(input_size, n_classes).cuda()))
-    modules.append(('LogSoftMax', nn.LogSoftmax(dim=-1).cuda()))
 
     self.model = nn.Sequential(OrderedDict(modules)).cuda()
 

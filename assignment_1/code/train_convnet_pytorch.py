@@ -11,6 +11,8 @@ import numpy as np
 import os
 from convnet_pytorch import ConvNet
 import cifar10_utils
+import torch
+import torch.nn as nn
 
 # Default constants
 LEARNING_RATE_DEFAULT = 1e-4
@@ -41,14 +43,10 @@ def accuracy(predictions, targets):
   TODO:
   Implement accuracy computation.
   """
-
-  ########################
-  # PUT YOUR CODE HERE  #
-  #######################
-  raise NotImplementedError
-  ########################
-  # END OF YOUR CODE    #
-  #######################
+  predicted = torch.argmax(predictions, dim=1)
+  targets = torch.argmax(targets, dim=1)
+  correct = (predicted == targets).float().sum()
+  accuracy = correct/targets.shape[0]
 
   return accuracy
 
@@ -64,13 +62,30 @@ def train():
   # Set the random seeds for reproducibility
   np.random.seed(42)
 
-  ########################
-  # PUT YOUR CODE HERE  #
-  #######################
-  raise NotImplementedError
-  ########################
-  # END OF YOUR CODE    #
-  #######################
+  # Get the datasets
+  data = cifar10_utils.get_cifar10()
+  n_classes = data['train'].labels.shape[1]
+  n_channels = data['train'].images.shape[3]
+  cnn = ConvNet(n_channels, n_classes)
+  loss_module = nn.CrossEntropyLoss()
+  optimizer = torch.optim.Adam(cnn.parameters(), lr = FLAGS.learning_rate)
+
+  # Iterate over the batches
+  for iteration in range(0, FLAGS.max_steps):
+
+    optimizer.zero_grad()
+
+    if (iteration%FLAGS.eval_freq == 0):
+      print("Iteration {}...".format(iteration))
+      test = np.swapaxes(data['test'].images, 1, 3)
+      test_probabilities = cnn.forward(torch.from_numpy(test).cuda())
+      print("Test accuracy:", accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda()))
+
+    batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
+    train_probabilities = cnn.forward(torch.from_numpy(np.swapaxes(batch, 1, 3)).cuda())
+    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().cuda())
+    loss.backward()
+    optimizer.step()
 
 def print_flags():
   """

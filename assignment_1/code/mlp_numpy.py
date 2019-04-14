@@ -32,21 +32,17 @@ class MLP(object):
     TODO:
     Implement initialization of the network.
     """
-
-    self._n_inputs = n_inputs
-    self._n_hidden = n_hidden
-    self._n_classes = n_classes
     self._modules = []
 
     input_size = n_inputs
 
     ## Add hidden modules
-    for output_size in self._n_hidden:
+    for output_size in n_hidden:
       self._modules += [LinearModule(input_size, output_size), ReLUModule()]
       input_size = output_size
 
     ##  Add output modules
-    self._modules += [LinearModule(input_size, self._n_classes), SoftMaxModule()]
+    self._modules += [LinearModule(input_size, n_classes), SoftMaxModule()]
 
 
   def forward(self, x):

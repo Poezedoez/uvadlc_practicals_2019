@@ -11,6 +11,8 @@ import numpy as np
 import os
 from mlp_pytorch import MLP
 import cifar10_utils
+import torch
+import torch.nn as nn
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -41,9 +43,10 @@ def accuracy(predictions, targets):
   TODO:
   Implement accuracy computation.
   """
-  predicted_i = np.argmax(predictions, axis=1)
-  target_i = np.argmax(targets, axis=1)
-  accuracy = np.count_nonzero(predicted_i == target_i)/target_i.length
+  predicted = torch.argmax(predictions, dim=1)
+  targets = torch.argmax(targets, dim=1)
+  correct = (predicted == targets).float().sum()
+  accuracy = correct/targets.shape[0]
 
   return accuracy
 
@@ -67,13 +70,31 @@ def train():
   else:
     dnn_hidden_units = []
 
-  ########################
-  # PUT YOUR CODE HERE  #
-  #######################
-  raise NotImplementedError
-  ########################
-  # END OF YOUR CODE    #
-  #######################
+  
+  # Get the datasets
+  data = cifar10_utils.get_cifar10()
+  n_classes = data['train'].labels.shape[1]
+  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3], dnn_hidden_units, n_classes)
+  loss_module = nn.CrossEntropyLoss()
+  optimizer = torch.optim.Adam(mlp.parameters(), lr = FLAGS.learning_rate)
+
+  # Iterate over the batches
+  for iteration in range(0, FLAGS.max_steps):
+
+    optimizer.zero_grad()
+
+    if (iteration%FLAGS.eval_freq == 0):
+      print("Iteration {}...".format(iteration))
+      reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2]*data['test'].images.shape[3]))
+      test_probabilities = mlp.forward(torch.from_numpy(reshaped_test).cuda())
+      print("Test accuracy:", accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda()))
+
+    batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
+    reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[1]*batch.shape[2]*batch.shape[3]))
+    train_probabilities = mlp.forward(torch.from_numpy(reshaped_batch).cuda())
+    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().cuda())
+    loss.backward()
+    optimizer.step()
 
 def print_flags():
   """

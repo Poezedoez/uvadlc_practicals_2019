@@ -34,13 +34,10 @@ class CustomBatchNormAutograd(nn.Module):
     """
     super(CustomBatchNormAutograd, self).__init__()
 
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    self.size = n_neurons
+    self.epsilon = eps
+    self.beta = nn.Parameter(torch.nn.init.constant_(torch.FloatTensor(n_neurons), 0))
+    self.gamma = nn.Parameter(torch.nn.init.constant_(torch.FloatTensor(n_neurons), 1))
 
   def forward(self, input):
     """
@@ -56,14 +53,12 @@ class CustomBatchNormAutograd(nn.Module):
       Implement batch normalization forward pass as given in the assignment.
       For the case that you make use of torch.var be aware that the flag unbiased=False should be set.
     """
-
-    ########################
-    # PUT YOUR CODE HERE  #
-    #######################
-    raise NotImplementedError
-    ########################
-    # END OF YOUR CODE    #
-    #######################
+    assert (input.shape[1]) == self.size, "Expected {0} neurons, but got {1}.".format(self.size, input.shape[1])
+    
+    mean = torch.mean(input, dim=0)
+    var = torch.var(input, dim=0, unbiased=False)
+    norm = (input - mean)/torch.sqrt(var+self.epsilon)
+    out = self.gamma*norm+self.beta
 
     return out
 
