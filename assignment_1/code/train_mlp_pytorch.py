@@ -13,6 +13,8 @@ from mlp_pytorch import MLP
 import cifar10_utils
 import torch
 import torch.nn as nn
+import matplotlib
+import matplotlib.pyplot as plt
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -78,6 +80,9 @@ def train():
   loss_module = nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(mlp.parameters(), lr = FLAGS.learning_rate)
 
+  train_losses = []
+  test_accuracies = []
+
   # Iterate over the batches
   for iteration in range(0, FLAGS.max_steps):
 
@@ -87,14 +92,33 @@ def train():
       print("Iteration {}...".format(iteration))
       reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2]*data['test'].images.shape[3]))
       test_probabilities = mlp.forward(torch.from_numpy(reshaped_test).cuda())
-      print("Test accuracy:", accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda()))
+      acc = accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda())
+      print("Test accuracy:", acc)
+      test_accuracies.append(acc)
 
     batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
     reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[1]*batch.shape[2]*batch.shape[3]))
     train_probabilities = mlp.forward(torch.from_numpy(reshaped_batch).cuda())
     loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().cuda())
+    # if (iteration%FLAGS.eval_freq == 0):
+    #   reshaped_train = np.reshape(data['train'].images, (data['train'].images.shape[0], data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3]))
+    #   train_probabilities = mlp.forward(torch.from_numpy(reshaped_train).cuda())
+    #   acc = accuracy(train_probabilities, torch.from_numpy(data['train'].labels).cuda())
+    #   print("Train accuracy:", acc)
+    #   train_losses.append(loss.item())
     loss.backward()
     optimizer.step()
+  
+  # Plot results
+  x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
+  fig, ax = plt.subplots()
+  ax.plot(x, train_losses)
+  ax.set(xlabel='batches', ylabel='loss',
+        title='Loss training set after batches trained')
+  ax.grid()
+
+  fig.savefig("figures/loss_{0}_{1}_{2}_{3}.png".format(FLAGS.dnn_hidden_units, FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
+  plt.show()
 
 def print_flags():
   """

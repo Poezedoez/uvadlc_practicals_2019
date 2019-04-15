@@ -13,6 +13,8 @@ from convnet_pytorch import ConvNet
 import cifar10_utils
 import torch
 import torch.nn as nn
+import matplotlib
+import matplotlib.pyplot as plt
 
 # Default constants
 LEARNING_RATE_DEFAULT = 1e-4
@@ -69,6 +71,8 @@ def train():
   cnn = ConvNet(n_channels, n_classes)
   loss_module = nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(cnn.parameters(), lr = FLAGS.learning_rate)
+  test_accuracies = []
+  train_losses = []
 
   # Iterate over the batches
   for iteration in range(0, FLAGS.max_steps):
@@ -79,13 +83,38 @@ def train():
       print("Iteration {}...".format(iteration))
       test = np.swapaxes(data['test'].images, 1, 3)
       test_probabilities = cnn.forward(torch.from_numpy(test).cuda())
-      print("Test accuracy:", accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda()))
+      acc = accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda())
+      print("Test accuracy:", acc)
+      test_accuracies.append(acc)
 
     batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
     train_probabilities = cnn.forward(torch.from_numpy(np.swapaxes(batch, 1, 3)).cuda())
     loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().cuda())
+    if (iteration%FLAGS.eval_freq == 0):
+      train_losses.append(loss.item())
     loss.backward()
     optimizer.step()
+
+  # Plot results
+  x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
+  fig, ax = plt.subplots()
+  ax.plot(x, train_losses)
+  ax.set(xlabel='batches', ylabel='loss',
+        title='Loss training set after batches trained')
+  ax.grid()
+
+  fig.savefig("figures/cnn_loss_{0}_{1}_{2}.png".format(FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
+  plt.show()
+
+  x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
+  fig, ax = plt.subplots()
+  ax.plot(x, test_accuracies)
+  ax.set(xlabel='batches', ylabel='accuracy',
+        title='Accuracy test set after batches trained')
+  ax.grid()
+
+  fig.savefig("figures/cnn_results_{0}_{1}_{2}.png".format(FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
+  plt.show()
 
 def print_flags():
   """
