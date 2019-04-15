@@ -46,8 +46,8 @@ def accuracy(predictions, targets):
   """
   
   predicted = np.argmax(predictions, axis=1)
-  targets = np.argmax(targets, axis=1)
-  accuracy = np.count_nonzero(predicted == targets)/targets.length
+  target_labels = np.argmax(targets, axis=1)
+  accuracy = np.count_nonzero(predicted == target_labels)/target_labels.shape[0]
 
   return accuracy
 
