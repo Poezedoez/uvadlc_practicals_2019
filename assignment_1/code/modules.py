@@ -62,10 +62,7 @@ class LinearModule(object):
     """
     self.grads['bias'] = dout
     self.grads['weight'] = np.dot(np.transpose(self.last_input), dout) # might need to transpose something here
-    print("dout", dout.shape)
-    print("params", self.params['weight'].T.shape)
     dx = np.dot(dout, self.params['weight'].T)
-    print("dxlin", dx.shape)
     
     return dx
 
@@ -146,12 +143,12 @@ class SoftMaxModule(object):
     TODO:
     Implement backward pass of the module.
     """
-    print("dout", dout.shape)
-    print()
-    b = self.last_output.T
+    # print("dout", dout.shape)
+    # print()
+    # x = self.last_output.T
     # print("b", .shape)
     # print()
-    diag_3d = np.eye(b.shape[1]) * b[:,np.newaxis,:]
+    # diag_3d = np.eye(b.shape[1]) * b[:,np.newaxis,:]
     # print()
     # diag_3d_sum = np.einsum('abc, ade -> de', diag_3d, diag_3d)
     # print("diag3d", diag_3d)
@@ -160,21 +157,27 @@ class SoftMaxModule(object):
     # outer_3d = np.einsum('aji, ejk -> jk', b, b)
     # print("in", self.last_output.shape)
     # b = self.last_output.T
-    outer_3d = b[:, :, np.newaxis] * b[:, np.newaxis, :]
-    softmax_grad_3d = diag_3d - outer_3d
-    print("reshape", dout[np.newaxis, :, :].shape)
+    # outer_3d = b[:, :, np.newaxis] * b[:, np.newaxis, :]
+    # softmax_grad_3d = diag_3d - outer_3d
+    # print("reshape", dout[np.newaxis, :, :].shape)
     # sol = dx_3d * dout[np.newaxis, :, :]
     # print("dx3d", dx_3d.shape)
-    dx_sum = np.einsum('bcd, ace -> cd', dout[np.newaxis, :, :], softmax_grad_3d)
+    # dx_sum = np.einsum('bcd, ace -> cd', dout[np.newaxis, :, :], softmax_grad_3d)
     # dx_3d_mean = np.mean(dx_3d, axis=0)
     # print("dx_3d_sum", dx_3d_sum.shape) 
     # print()
     # print("outer3d", outer_3d.shape)
     # print()
-    # batch_mean = np.mean([(np.diagflat(xi)- np.outer(xi, xi)) for xi in self.last_output.T], axis=0)
-    # dx = dx_3d_sum
+    softmax_grads = []
+    x = self.last_output
+    for i in range(0, x.shape[1]):
+      softmax_grad = np.diagflat(x[:, i])- np.outer(x[:, i], x[:, i])
+      dxi = np.dot(dout[:, i], softmax_grad)
+      softmax_grads.append(dxi)
+
+    dx = np.array(softmax_grads).T
   
-    return dx = dx_sum
+    return dx
 
 class CrossEntropyModule(object):
   """
