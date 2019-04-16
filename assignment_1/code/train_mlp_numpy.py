@@ -12,6 +12,8 @@ import os
 from mlp_numpy import MLP
 from modules import CrossEntropyModule
 import cifar10_utils
+import matplotlib
+import matplotlib.pyplot as plt
 
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
@@ -44,8 +46,8 @@ def accuracy(predictions, targets):
   """
   
   predicted = np.argmax(predictions, axis=1)
-  targets = np.argmax(targets, axis=1)
-  accuracy = np.count_nonzero(predicted == targets)/targets.length
+  target_labels = np.argmax(targets, axis=1)
+  accuracy = np.count_nonzero(predicted == target_labels)/target_labels.shape[0]
 
   return accuracy
 
@@ -74,6 +76,8 @@ def train():
   n_classes = data['train'].labels.shape[1]
   mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3], FLAGS.dnn_hidden_units, n_classes)
   loss_module = CrossEntropyModule()
+  test_accuracies = []
+  train_losses = []
 
   # Iterate over the batches
   for iteration in range(0, FLAGS.max_steps):
@@ -83,13 +87,38 @@ def train():
     if (iteration%FLAGS.eval_freq == 0):
       reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2]*data['test'].images.shape[3]))
       probabilities = mlp.forward(reshaped_test)
-      print("Test accuracy:", accuracy(probabilities, data['test'].labels))
+      acc = accuracy(probabilities, data['test'].labels)
+      print("Test accuracy:", acc)
+      test_accuracies.append(acc)
 
     batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
     reshaped_batch = np.reshape(batch, (batch.shape[0], batch.shape[1]*batch.shape[2]*batch.shape[3]))
     probabilities = mlp.forward(reshaped_batch)
     loss = loss_module.forward(probabilities, batch_labels)
+    if (iteration%FLAGS.eval_freq == 0):
+      train_losses.append(loss)
     mlp.backward(loss_module.backward(probabilities, batch_labels))
+
+  # Plot results
+  x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
+  fig, ax = plt.subplots()
+  ax.plot(x, train_losses)
+  ax.set(xlabel='batches', ylabel='loss',
+        title='Loss training set after batches trained')
+  ax.grid()
+
+  fig.savefig("figures/numpymlp_loss_{0}_{1}_{2}_{3}.png".format(FLAGS.dnn_hidden_units, FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
+  plt.show()
+
+  x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
+  fig, ax = plt.subplots()
+  ax.plot(x, test_accuracies)
+  ax.set(xlabel='batches', ylabel='accuracy',
+        title='Accuracy test set after batches trained')
+  ax.grid()
+
+  fig.savefig("figures/numpymlp_results_{0}_{1}_{2}_{3}.png".format(FLAGS.dnn_hidden_units, FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
+  plt.show()
 
 def print_flags():
   """
