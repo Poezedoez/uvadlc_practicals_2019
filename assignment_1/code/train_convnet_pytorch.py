@@ -73,6 +73,8 @@ def train():
   optimizer = torch.optim.Adam(cnn.parameters(), lr = FLAGS.learning_rate)
   test_accuracies = []
   train_losses = []
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  cnn.to(device)
 
   # Iterate over the batches
   for iteration in range(0, FLAGS.max_steps):
@@ -82,14 +84,14 @@ def train():
     if (iteration%FLAGS.eval_freq == 0):
       print("Iteration {}...".format(iteration))
       test = np.swapaxes(data['test'].images, 1, 3)
-      test_probabilities = cnn.forward(torch.from_numpy(test).cuda())
-      acc = accuracy(test_probabilities, torch.from_numpy(data['test'].labels).cuda())
+      test_probabilities = cnn.forward(torch.from_numpy(test).to(device))
+      acc = accuracy(test_probabilities, torch.from_numpy(data['test'].labels).to(device))
       print("Test accuracy:", acc)
       test_accuracies.append(acc)
 
     batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
-    train_probabilities = cnn.forward(torch.from_numpy(np.swapaxes(batch, 1, 3)).cuda())
-    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().cuda())
+    train_probabilities = cnn.forward(torch.from_numpy(np.swapaxes(batch, 1, 3)).to(device))
+    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().to(device))
     if (iteration%FLAGS.eval_freq == 0):
       train_losses.append(loss.item())
     loss.backward()
@@ -104,7 +106,7 @@ def train():
   ax.grid()
 
   fig.savefig("figures/cnn_loss_{0}_{1}_{2}.png".format(FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
-  plt.show()
+  # plt.show()
 
   x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)
   fig, ax = plt.subplots()
@@ -114,7 +116,7 @@ def train():
   ax.grid()
 
   fig.savefig("figures/cnn_results_{0}_{1}_{2}.png".format(FLAGS.learning_rate, FLAGS.max_steps, FLAGS.batch_size))
-  plt.show()
+  # plt.show()
 
 def print_flags():
   """
