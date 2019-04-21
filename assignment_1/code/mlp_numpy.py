@@ -32,17 +32,20 @@ class MLP(object):
     TODO:
     Implement initialization of the network.
     """
-    self._modules = []
+    self.layers = []
+    self.activations = []
 
     input_size = n_inputs
 
     ## Add hidden modules
     for output_size in n_hidden:
-      self._modules += [LinearModule(input_size, output_size), ReLUModule()]
+      self.layers += [LinearModule(input_size, output_size)]
+      self.activations += [ReLUModule()]
       input_size = output_size
 
     ##  Add output modules
-    self._modules += [LinearModule(input_size, n_classes), SoftMaxModule()]
+    self.layers += [LinearModule(input_size, n_classes)]
+    self.activations += [SoftMaxModule()]
 
 
   def forward(self, x):
@@ -59,8 +62,9 @@ class MLP(object):
     Implement forward pass of the network.
     """
     out = x
-    for module in self._modules:
-      out = module.forward(out)
+    for i in range(0, len(self.layers)):
+      out = self.layers[i].forward(out)
+      out = self.activations[i].forward(out)
 
     return out
 
@@ -75,7 +79,8 @@ class MLP(object):
     Implement backward pass of the network.
     """
     dx = dout
-    for module in reversed(self._modules):
-      dx = module.backward(dx)
+    for i in range(len(self.layers)-1, -1, -1):
+      dx = self.activations[i].backward(dx)
+      dx = self.layers[i].backward(dx)
 
     return

@@ -64,10 +64,10 @@ def train():
   # Set the random seeds for reproducibility
   np.random.seed(42)
 
-  # Get the datasets
+  # Get everything ready
   data = cifar10_utils.get_cifar10()
-  n_classes = data['train'].labels.shape[1]
-  n_channels = data['train'].images.shape[3]
+  n_classes = data['train'].labels.shape[1] # 10
+  n_channels = data['train'].images.shape[1] # 3
   cnn = ConvNet(n_channels, n_classes)
   loss_module = nn.CrossEntropyLoss()
   optimizer = torch.optim.Adam(cnn.parameters(), lr = FLAGS.learning_rate)
@@ -81,17 +81,24 @@ def train():
 
     optimizer.zero_grad()
 
+    # Evaluate on whole test set
     if (iteration%FLAGS.eval_freq == 0):
       print("Iteration {}...".format(iteration))
-      test = np.swapaxes(data['test'].images, 1, 3)
-      test_probabilities = cnn.forward(torch.from_numpy(test).to(device))
-      acc = accuracy(test_probabilities, torch.from_numpy(data['test'].labels).to(device))
-      print("Test accuracy:", acc)
-      test_accuracies.append(acc)
+      epochs = data['test'].epochs_completed
+      batch_accuracies = []
+      while (epochs-data['test'].epochs_completed) == 0: 
+        test_batch, test_batch_labels = data['test'].next_batch(FLAGS.batch_size)
+        test_probabilities = cnn.forward(torch.from_numpy(test_batch).to(device))
+        acc = accuracy(test_probabilities, torch.from_numpy(test_batch_labels).to(device))
+        batch_accuracies.append(acc.item())
+      test_accuracy = np.mean(batch_accuracies)
+      print("Test accuracy:", test_accuracy)
+      test_accuracies.append(test_accuracy)
 
-    batch, batch_labels = data['train'].next_batch(FLAGS.batch_size)
-    train_probabilities = cnn.forward(torch.from_numpy(np.swapaxes(batch, 1, 3)).to(device))
-    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(batch_labels), dim=1).long().to(device))
+    # Train on batch
+    train_batch, train_batch_labels = data['train'].next_batch(FLAGS.batch_size)
+    train_probabilities = cnn.forward(torch.from_numpy(train_batch).to(device))
+    loss = loss_module(train_probabilities, torch.argmax(torch.from_numpy(train_batch_labels), dim=1).long().to(device))
     if (iteration%FLAGS.eval_freq == 0):
       train_losses.append(loss.item())
     loss.backward()

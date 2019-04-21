@@ -74,7 +74,7 @@ def train():
   # Get the datasets
   data = cifar10_utils.get_cifar10()
   n_classes = data['train'].labels.shape[1]
-  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3], FLAGS.dnn_hidden_units, n_classes)
+  mlp = MLP(data['train'].images.shape[1]*data['train'].images.shape[2]*data['train'].images.shape[3], dnn_hidden_units, n_classes)
   loss_module = CrossEntropyModule()
   test_accuracies = []
   train_losses = []
@@ -82,9 +82,8 @@ def train():
   # Iterate over the batches
   for iteration in range(0, FLAGS.max_steps):
 
-    print("Iteration {}...".format(iteration))
-
     if (iteration%FLAGS.eval_freq == 0):
+      print("Iteration {}...".format(iteration))
       reshaped_test = np.reshape(data['test'].images, (data['test'].images.shape[0], data['test'].images.shape[1]*data['test'].images.shape[2]*data['test'].images.shape[3]))
       probabilities = mlp.forward(reshaped_test)
       acc = accuracy(probabilities, data['test'].labels)
@@ -98,6 +97,11 @@ def train():
     if (iteration%FLAGS.eval_freq == 0):
       train_losses.append(loss)
     mlp.backward(loss_module.backward(probabilities, batch_labels))
+
+    for layer in mlp.layers:
+      layer.params['weight'] -= layer.grads['weight']*FLAGS.learning_rate
+      layer.params['bias'] -= layer.grads['bias']*FLAGS.learning_rate
+
 
   # Plot results
   x = range(0, len(test_accuracies)*FLAGS.eval_freq, FLAGS.eval_freq)

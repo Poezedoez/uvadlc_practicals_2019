@@ -32,40 +32,40 @@ class ConvNet(nn.Module):
     super(ConvNet, self).__init__()
 
     self.block1 = nn.Sequential(OrderedDict([
-          ('conv1', nn.Conv2d(n_channels, 64, 3, padding=1)),
+          ('conv1', nn.Conv2d(n_channels, 64, kernel_size=3, padding=1)),
           ('batchnorm1', nn.BatchNorm2d(64)),
           ('relu1', nn.ReLU()),
           ('maxpool1', nn.MaxPool2d(3, stride=2, padding=1))
         ]))
     self.block2 = nn.Sequential(OrderedDict([
-          ('conv2', nn.Conv2d(64, 128, 3, padding=1)),
+          ('conv2', nn.Conv2d(64, 128, kernel_size=3, padding=1)),
           ('batchnorm2', nn.BatchNorm2d(128)),
           ('relu2', nn.ReLU()),
           ('maxpool2', nn.MaxPool2d(3, stride=2, padding=1))
         ]))
     self.block3 = nn.Sequential(OrderedDict([
-          ('conv3_a', nn.Conv2d(128, 256, 3, padding=1)),
-          # ('batchnorm3_a', nn.BatchNorm2d(256)),
-          # ('relu3_a', nn.ReLU()),
-          ('conv3_b', nn.Conv2d(256, 256, 3, padding=1)),
+          ('conv3_a', nn.Conv2d(128, 256, kernel_size=3, padding=1)),
+          ('batchnorm3_a', nn.BatchNorm2d(256)),
+          ('relu3_a', nn.ReLU()),
+          ('conv3_b', nn.Conv2d(256, 256, kernel_size=3, padding=1)),
           ('batchnorm3', nn.BatchNorm2d(256)),
           ('relu3', nn.ReLU()),
           ('maxpool3', nn.MaxPool2d(3, stride=2, padding=1))
         ]))
     self.block4 = nn.Sequential(OrderedDict([
-          ('conv4_a', nn.Conv2d(256, 512, 3, padding=1)),
-          # ('batchnorm4_a', nn.BatchNorm2d(512)),
-          # ('relu4_a', nn.ReLU()),
-          ('conv4_b', nn.Conv2d(512, 512, 3, padding=1)),
+          ('conv4_a', nn.Conv2d(256, 512, kernel_size=3, padding=1)),
+          ('batchnorm4_a', nn.BatchNorm2d(512)),
+          ('relu4_a', nn.ReLU()),
+          ('conv4_b', nn.Conv2d(512, 512, kernel_size=3, padding=1)),
           ('batchnorm4', nn.BatchNorm2d(512)),
           ('relu4', nn.ReLU()),
           ('maxpool4', nn.MaxPool2d(3, stride=2, padding=1))
         ]))
     self.block5 = nn.Sequential(OrderedDict([
-          ('conv5_a', nn.Conv2d(512, 512, 3, padding=1)),
+          ('conv5_a', nn.Conv2d(512, 512, kernel_size=3, padding=1)),
           ('batchnorm5_a', nn.BatchNorm2d(512)),
-          # ('relu5_a', nn.ReLU()),
-          # ('conv5_b', nn.Conv2d(512, 512, 3, padding=1)),
+          ('relu5_a', nn.ReLU()),
+          ('conv5_b', nn.Conv2d(512, 512, kernel_size=3, padding=1)),
           ('batchnorm5', nn.BatchNorm2d(512)),
           ('relu5', nn.ReLU()),
           ('maxpool5', nn.MaxPool2d(3, stride=2, padding=1))

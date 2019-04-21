@@ -22,8 +22,9 @@ class LinearModule(object):
     
     Also, initialize gradients with zeros.
     """
-    self.params = {'weight': np.random.normal(0, 0.0001, (in_features, out_features)), 'bias': np.zeros(out_features)}
-    self.grads = {'weight': np.zeros((in_features, out_features)), 'bias': np.zeros(out_features)}
+
+    self.params = {'weight': np.random.normal(0, 0.0001, (in_features, out_features)), 'bias': np.zeros((1, out_features))}
+    self.grads = {'weight': np.zeros((in_features, out_features)), 'bias': np.zeros((1, out_features))}
 
   def forward(self, x):
     """
@@ -60,8 +61,8 @@ class LinearModule(object):
     Implement backward pass of the module. Store gradient of the loss with respect to 
     layer parameters in self.grads['weight'] and self.grads['bias']. 
     """
-    self.grads['bias'] = dout
-    self.grads['weight'] = np.dot(np.transpose(self.last_input), dout) # might need to transpose something here
+    self.grads['bias'] = np.sum(dout, axis=0)
+    self.grads['weight'] = np.dot(np.transpose(self.last_input), dout)
     dx = np.dot(dout, self.params['weight'].T)
     
     return dx
@@ -124,10 +125,11 @@ class SoftMaxModule(object):
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
-    b = np.max(x)
-    xi = np.exp(x - b)
-    out = xi/np.sum(xi, axis=0)
-    self.last_output = out
+    b = np.max(x, axis=1)
+    xi = np.exp(x - b[:, np.newaxis])
+    sum_xi = np.sum(xi, axis=1)
+    out = xi/sum_xi[:, np.newaxis]
+    self.last_forward = out
 
     return out
 
@@ -143,39 +145,11 @@ class SoftMaxModule(object):
     TODO:
     Implement backward pass of the module.
     """
-    # print("dout", dout.shape)
-    # print()
-    # x = self.last_output.T
-    # print("b", .shape)
-    # print()
-    # diag_3d = np.eye(b.shape[1]) * b[:,np.newaxis,:]
-    # print()
-    # diag_3d_sum = np.einsum('abc, ade -> de', diag_3d, diag_3d)
-    # print("diag3d", diag_3d)
-    # print()
-    # b = self.last_output[np.newaxis, :, :]
-    # outer_3d = np.einsum('aji, ejk -> jk', b, b)
-    # print("in", self.last_output.shape)
-    # b = self.last_output.T
-    # outer_3d = b[:, :, np.newaxis] * b[:, np.newaxis, :]
-    # softmax_grad_3d = diag_3d - outer_3d
-    # print("reshape", dout[np.newaxis, :, :].shape)
-    # sol = dx_3d * dout[np.newaxis, :, :]
-    # print("dx3d", dx_3d.shape)
-    # dx_sum = np.einsum('bcd, ace -> cd', dout[np.newaxis, :, :], softmax_grad_3d)
-    # dx_3d_mean = np.mean(dx_3d, axis=0)
-    # print("dx_3d_sum", dx_3d_sum.shape) 
-    # print()
-    # print("outer3d", outer_3d.shape)
-    # print()
-    softmax_grads = []
-    x = self.last_output
-    for i in range(0, x.shape[1]):
-      softmax_grad = np.diagflat(x[:, i])- np.outer(x[:, i], x[:, i])
-      dxi = np.dot(dout[:, i], softmax_grad)
-      softmax_grads.append(dxi)
-
-    dx = np.array(softmax_grads).T
+    x = self.last_forward
+    diag_3d = np.eye(x.shape[1]) * x[:,np.newaxis,:]
+    outer_3d = x[:, :, np.newaxis] * x[:, np.newaxis, :]
+    softmax_grad_3d = diag_3d - outer_3d
+    dx = np.einsum('ij, ijk -> ik', dout, softmax_grad_3d)
   
     return dx
 
