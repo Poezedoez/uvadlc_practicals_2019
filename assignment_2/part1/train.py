@@ -26,9 +26,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from part1.dataset import PalindromeDataset
-from part1.vanilla_rnn import VanillaRNN
-from part1.lstm import LSTM
+from dataset import PalindromeDataset
+from vanilla_rnn import VanillaRNN
+from lstm import LSTM
 
 # You may want to look into tensorboardX for logging
 # from tensorboardX import SummaryWriter
@@ -43,15 +43,18 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the model that we are going to use
-    model = None  # fixme
+    settings = [config.input_length, config.input_dim, config.num_hidden, config.num_classes, config.batch_size, device]
+    model = VanillaRNN(*settings) if config.model_type=='RNN' else LSTM(*settings)
+    # print("model params:", list(model.parameters()))
 
     # Initialize the dataset and data loader (note the +1)
     dataset = PalindromeDataset(config.input_length+1)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
 
     # Setup the loss and optimizer
-    criterion = None  # fixme
-    optimizer = None  # fixme
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)
+    
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
@@ -62,18 +65,25 @@ def train(config):
 
         ############################################################################
         # QUESTION: what happens here and why?
+        # - Gradients are clipped according to the given threshold to prevent
+        # exploding gradients
         ############################################################################
         torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.max_norm)
         ############################################################################
 
         # Add more code here ...
-
-        loss = np.inf   # fixme
-        accuracy = 0.0  # fixme
+        predictions = model.forward(batch_inputs)
+        loss = criterion(predictions, batch_targets)
+        accuracy = float((predictions.argmax(dim=1) == batch_targets.long()).sum())/float(batch_targets.shape[0])
+        # print("acc", accuracy)
+        loss.backward()
+        optimizer.step()
+        
 
         # Just for time measurement
         t2 = time.time()
-        examples_per_second = config.batch_size/float(t2-t1)
+        # examples_per_second = config.batch_size/float(t2-t1)
+        examples_per_second = 0.0
 
         if step % 10 == 0:
 
@@ -81,7 +91,7 @@ def train(config):
                   "Accuracy = {:.2f}, Loss = {:.3f}".format(
                     datetime.now().strftime("%Y-%m-%d %H:%M"), step,
                     config.train_steps, config.batch_size, examples_per_second,
-                    accuracy, loss
+                    accuracy, loss.item()
             ))
 
         if step == config.train_steps:
