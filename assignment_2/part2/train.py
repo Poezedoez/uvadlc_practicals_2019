@@ -36,7 +36,7 @@ from model import TextGenerationModel
 ## Use one hot encodings to prevent biases
 def onehot(x, input_dim):
     new_shape = list(x.shape + (input_dim,))
-    zero_hot = torch.zeros(new_shape, device=x.device)
+    zero_hot = torch.zeros(new_shape).to(x.device)
     one_hot = zero_hot.scatter(-1, x.unsqueeze(-1), 1)
 
     return one_hot
@@ -64,7 +64,7 @@ def generate_text(parameters):
 def train(config):
 
     # Initialize the device which to run the model on
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
     dataset = TextDataset(config.txt_file, config.seq_length)
@@ -72,10 +72,11 @@ def train(config):
 
     # Initialize the model that we are going to use
     settings = [config.batch_size, config.seq_length, dataset.vocab_size, 
-        config.lstm_num_hidden, config.lstm_num_layers]
+        config.lstm_num_hidden, config.lstm_num_layers, (1-config.dropout_keep_prob)]
     model = TextGenerationModel(*settings)
-    # model = torch.load("models/darwin_model_final_27042019.pt")
     model.to(device)
+
+    print(model)
 
     # Setup the loss and optimizer
     criterion = torch.nn.CrossEntropyLoss()
@@ -83,34 +84,44 @@ def train(config):
 
     data_iterator = iter(data_loader)
     step = 0
+    epochs = 0
     results = []
     while True:
-        try:
-            batch_inputs, batch_targets = next(data_iterator)
-        except StopIteration:
-            data_iterator = iter(data_loader)
-            batch_inputs, batch_targets = next(data_iterator)
 
         # Only for time measurement of step through network
         t1 = time.time()
 
+        # Get new batch
+        try:
+            batch_inputs, batch_targets = next(data_iterator)
+        except StopIteration:
+            epochs += 1
+            print("epochs done:", epochs)
+            # Reload the dataset from the start
+            data_iterator = iter(data_loader)
+            batch_inputs, batch_targets = next(data_iterator)
+        
+        # Stabilize 
+        optimizer.zero_grad()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.max_norm)
+
+        # Forward pass
         x = onehot(torch.stack(batch_inputs), dataset.vocab_size).to(device)
         y = torch.stack(batch_targets).to(device)
-
         predictions, _ = model(x)
-        loss = criterion(predictions.transpose(2,1), y)
+        loss = criterion(predictions.permute(0,2,1), y)
 
-        optimizer.zero_grad()
+        # Backward pass
         loss.backward()
         optimizer.step()  
-
-        accuracy = float((predictions.argmax(dim=-1) == y.long()).sum())/float(config.batch_size * config.seq_length)
-
+        accuracy = (predictions.argmax(dim=-1) == y.long()).float().mean()
+        
         # Just for time measurement
         t2 = time.time()
-        # examples_per_second = config.batch_size/float(t2-t1)
-        examples_per_second = 0
 
+        examples_per_second = config.batch_size/float(t2-t1)
+
+        # print progress
         if step % config.print_every == 0:
             print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                 "Accuracy = {:.2f}, Loss = {:.3f}".format(
@@ -119,6 +130,7 @@ def train(config):
                     accuracy, loss.item()
             ))
 
+        # generate sample
         if step % config.sample_every == 0:
             seed = torch.randint(high=dataset.vocab_size, size=(1, 1)).to(device)
             sample_parameters = {'first_character':seed, 'model':model, 'sequence_length':config.seq_length, 
@@ -126,12 +138,9 @@ def train(config):
             sample_text = generate_text(sample_parameters)
             print(sample_text)
             results.append((step, accuracy, loss.item(), sample_text))
-            torch.save(model, "models/darwin_model_step{}.pt".format(step))
-            # Generate some sentences by sampling from the model
-
-        if step == config.train_steps:
-            # If you receive a PyTorch data-loader error, check this bug report:
-            # https://github.com/pytorch/pytorch/pull/9655
+            # torch.save(model, "models/darwin_model_step{}.pt".format(step))
+        
+        if step == config.train_steps or epochs == config.max_epochs:
             break
 
         step += 1
@@ -175,6 +184,8 @@ if __name__ == "__main__":
     parser.add_argument('--summary_path', type=str, default="./summaries/", help='Output path for summaries')
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
     parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
+    parser.add_argument('--device', type=str, default="cuda", help='Device to train on')
+    parser.add_argument('--max_epochs', type=int, default=1, help='Maximum amount of epochs to train')
 
     config = parser.parse_args()
 

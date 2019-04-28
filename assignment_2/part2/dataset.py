@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import re
 import numpy as np
 import torch.utils.data as data
 
@@ -27,11 +28,13 @@ class TextDataset(data.Dataset):
     def __init__(self, filename, seq_length):
         assert os.path.splitext(filename)[1] == ".txt"
         self._seq_length = seq_length
-        self._data = open(filename, 'r', encoding="utf8").read()
+        self._data = open(filename, 'r', encoding='utf8').read()
+        self._data = re.sub(r'[^\x00-\x7f]',r'', self._data)
         self._chars = list(set(self._data))
         self._data_size, self._vocab_size = len(self._data), len(self._chars)
         print("Initialize dataset with {} characters, {} unique.".format(
             self._data_size, self._vocab_size))
+        self._chars = sorted(self._chars)
         self._char_to_ix = { ch:i for i,ch in enumerate(self._chars) }
         self._ix_to_char = { i:ch for i,ch in enumerate(self._chars) }
         self._offset = 0
