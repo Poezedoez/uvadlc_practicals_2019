@@ -22,5 +22,5 @@ mkdir models
 
 python3 train.py --batch_size 512 --sample_every 200 --print_every 200 --txt_file book_NL_darwin_reis_om_de_wereld.txt
 
-cp -r models/* $HOME/assignment_2
-cp results.txt $HOME/assignment_2
+cp -r models/* $HOME/uvadlc_practicals_2019/assignment_2/part2/models
+cp results.txt $HOME/uvadlc_practicals_2019/assignment_2/part2
