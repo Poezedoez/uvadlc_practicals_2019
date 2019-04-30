@@ -41,23 +41,37 @@ def onehot(x, input_dim):
 
     return one_hot
 
+## Complete a given string by generation of the model
+def complete_sentence(sentence, parameters):
+    sequence = parameters['dataset'].convert_to_sequence(sentence)
+    sequence = torch.tensor(sequence).unsqueeze(1).to(parameters['device'])
+    ht_ct = parameters['ht_ct']
+    for s in range(0, sequence.shape[0]):
+        next_character = sequence[s, :]
+        x = onehot(next_character.view(1, -1), parameters['dataset'].vocab_size)
+        _, ht_ct = parameters['model'].forward(x, ht_ct)
+    
+    next_character = parameters['dataset'].convert_to_sequence(' ')
+    parameters.update({'ht_ct':ht_ct, 'seed':torch.tensor(next_character).unsqueeze(1).to(parameters['device'])})
+    completion = generate_text(parameters)
+
+    return sentence + completion
+
+## Generate text up to given length given a seed and a hidden state
 def generate_text(parameters):
 
     with torch.no_grad():
         
-        text = []
-        text.append(parameters['first_character'].item())
-
-        next_character = parameters['first_character']
-        ht_ct = None
-        for _ in range(0, parameters['sequence_length']):
-            x = onehot(next_character.view(1,-1), parameters['dataset'].vocab_size)
+        text = parameters['seed'].view(-1).tolist()
+        next_character = parameters['seed']
+        ht_ct = parameters['ht_ct']
+        for _ in range(0, parameters['sample_length']):
+            x = onehot(next_character.view(1, -1), parameters['dataset'].vocab_size)
             y, ht_ct = parameters['model'].forward(x, ht_ct)
             ## Distribution dependent on temperature parameter (inverse Beta)
             distribution = torch.softmax(y[-1,:,:].squeeze()/parameters['temperature'], dim=0)
-            next_character = torch.multinomial(distribution, 1)
-            text.append(next_character.item())
-
+            next_character = torch.multinomial(distribution, next_character.shape[0])
+            text += next_character.tolist()
     return parameters['dataset'].convert_to_string(text)
 
 
@@ -86,6 +100,7 @@ def train(config):
     step = 0
     epochs = 0
     results = []
+    completed_sentences = []
     while True:
 
         # Only for time measurement of step through network
@@ -130,15 +145,17 @@ def train(config):
                     accuracy, loss.item()
             ))
 
-        # generate sample
+        # generate sample and complete sentence
         if step % config.sample_every == 0:
             seed = torch.randint(high=dataset.vocab_size, size=(1, 1)).to(device)
-            sample_parameters = {'first_character':seed, 'model':model, 'sequence_length':config.seq_length, 
-                'dataset':dataset, 'temperature':1, 'device':device}
+            sample_parameters = {'seed':seed, 'model':model, 'sample_length':config.seq_length, 
+                'dataset':dataset, 'temperature':1, 'device':device, 'ht_ct':None}
             sample_text = generate_text(sample_parameters)
             print(sample_text)
             results.append((step, accuracy, loss.item(), sample_text))
-            # torch.save(model, "models/darwin_model_step{}.pt".format(step))
+            completed_sentence = complete_sentence(config.complete_sentence, sample_parameters)
+            print(completed_sentence)
+            completed_sentences.append(completed_sentence)
         
         if step == config.train_steps or epochs == config.max_epochs:
             break
@@ -146,10 +163,33 @@ def train(config):
         step += 1
 
     print('Done training.')
-    torch.save(model, "models/darwin_model_final.pt")
-    
+    torch.save(model, "models/{}_model_final.pt".format(config.txt_file))
+
+    ## Sample with final model for different temperatures
+    temperatures = [0.5, 1, 2]
+    samples = []
+    seeds = [torch.randint(high=dataset.vocab_size, size=(1, 1)).to(device) for _ in range(0, 5)]
+    for t in temperatures:
+        for seed in seeds:
+            sample_parameters = {'seed':seed, 'model':model, 'sample_length':60, 
+                    'dataset':dataset, 'temperature':t, 'device':device, 'ht_ct':None}
+            sample_text = generate_text(sample_parameters)
+            samples.append((t, seed.item(), sample_text))
+
+    ## Save temperature samples
+    with open('results/{}_temperature_samples.txt'.format(config.txt_file), 'w') as f:
+        f.write("temperature, seed, sample\n")
+        for temperatures, seed, sample in samples:
+            f.write("%1f, %s, %s\n" %(temperatures, dataset.convert_to_string([seed]), sample))
+        
+    ## Save completed sentences
+    with open('results/completed_sentences_{}.txt'.format(config.complete_sentence), 'w') as f:
+        f.write("{}...\n".format(config.complete_sentence))
+        for sentence in completed_sentences:
+            f.write("%s\n" % sentence)
+
     ## Save results
-    with open('results.txt', 'w') as f:
+    with open('results/{}_results.txt'.format(config.txt_file), 'w') as f:
         f.write("step, accuracy, loss, sample\n")
         for step, accuracy, loss, sample in results:
             f.write("%d, %2f, %2f, %s\n" %(step, accuracy, loss, sample))
@@ -186,7 +226,7 @@ if __name__ == "__main__":
     parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
     parser.add_argument('--device', type=str, default="cuda", help='Device to train on')
     parser.add_argument('--max_epochs', type=int, default=1, help='Maximum amount of epochs to train')
-
+    parser.add_argument('--complete_sentence', type=str, default="Harry, you are")
     config = parser.parse_args()
 
     # Train the model

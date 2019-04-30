@@ -1,0 +1,24 @@
+step, accuracy, loss, sample
+0, 0.000391, 4.362611, &n"l4jUu-AJ4TXNgxLisxxeeuep wOn
+100, 0.217253, 2.878023, RSenhnfdenmm Veic e twowieuoapd
+200, 0.353255, 2.255592, Utelping olf o?.\"Mo"sI Herchw-
+300, 0.423242, 1.998460, 9 herpiling a vighe flaeld frio
+400, 0.457227, 1.875877, 'f be itt meram ankud toln was 
+500, 0.480990, 1.769638, Xesewtery samen from the knoust
+600, 0.509701, 1.689549, 0denks surrew threenck in the M
+700, 0.530859, 1.599734, 9n, Harry starges that were a s
+800, 0.531185, 1.586285, \"I'm facust duspen to soment h
+900, 0.553125, 1.516290,  ; even was parently reveal the
+1000, 0.556706, 1.492818, 3. He watching shet on gectn in
+1100, 0.558203, 1.498777, Kreachoo still of timent, but t
+1200, 0.565169, 1.452220, I must it go, hels, Ron cared o
+1300, 0.577995, 1.409607, 1 \"\"Spank, Peeven yer for in 
+1400, 0.580013, 1.408709, , a kit, all. You're detting, k
+1500, 0.583529, 1.382464, Neville out of them who have sp
+1600, 0.583789, 1.381206, 3. Then white he must some sure
+1700, 0.595898, 1.348270, Xenophision like a hake movembl
+1800, 0.599089, 1.350155, Es were on explosion in flutter
+1900, 0.591146, 1.357872, Dumbledore. He had alreated bri
+2000, 0.594922, 1.344213, for you remembeen my,\" said Lu
+2100, 0.597917, 1.331839, Ministry spark of Gringo and fa
+2200, 0.605078, 1.316545, 0 away, nothing might blow the 

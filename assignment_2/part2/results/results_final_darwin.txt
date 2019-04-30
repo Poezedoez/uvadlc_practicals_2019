@@ -1,0 +1,38 @@
+step, accuracy, loss, sample
+0, 0.012826, 4.459207, Tl6,dZBmzg)lwbMNoCIas il nw eFl
+200, 0.334375, 2.278688, [/?S3J M 10]09r-U25] 
+De laoot 
+400, 0.437826, 1.909901, Puritderu de rerheen; lag voort
+600, 0.475326, 1.781310, 0 mij de
+oort gebogen; en vorge
+800, 0.502604, 1.670579, 1] De ziegeroorde gevan geberg 
+1000, 0.520182, 1.600212, x-8t man eln geweg op een hevig
+1200, 0.539323, 1.541610, [169] Lare hergena. 2.
+
+[1] Tem
+1400, 0.542643, 1.528368, Hoo dan door K. 41. In Buculs o
+1600, 0.557162, 1.468265, rs zag merkwaardig niet namen k
+1800, 0.557227, 1.455697, geen tengeren, welke, welkroot 
+2000, 0.564844, 1.419849, tzagden. Indien daar hier gewor
+2200, 0.575586, 1.402820, ? Waarvonden, dat deze lagen. D
+2400, 0.572331, 1.412758, ikwekkend, dat aan de steenenaa
+2600, 0.578971, 1.393430, ? Zelfs zeer meer ons onder dez
+2800, 0.578385, 1.384609, -boomen met werpt dezen verdoor
+3000, 0.580990, 1.373444, : wanter en aarde en zeer met d
+3200, 0.586719, 1.335633, I2 O'
+Minde-werking aangekomen,
+3400, 0.587240, 1.353600, 7, of in antillend in de andere
+3600, 0.589974, 1.351875, ,
+waar eens manerassa smaken, o
+3800, 0.585677, 1.353216, 's en steile losse, geleken sch
+4000, 0.589323, 1.333829, . Ik hoorden zich in een groote
+4200, 0.597721, 1.317629, = 1/50 inboorlingen
+zeven
+aan z
+4400, 0.584635, 1.362726, XBER
+HETT PLIDTT. CHIPLANE.
+DE 
+4600, 0.585612, 1.343079, r vleesch op legden. Deze boome
+4800, 0.593229, 1.327330, ] Heeschreve soort, en het onve
+5000, 0.594661, 1.316492, /bewijzen zich in het oog en on
+5200, 0.594987, 1.306862, Juti = 650 meterwons er den Sti

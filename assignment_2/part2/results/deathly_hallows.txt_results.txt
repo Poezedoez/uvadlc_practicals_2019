@@ -1,0 +1,24 @@
+step, accuracy, loss, sample
+0, 0.000911, 4.371350, ;Twfms-bD1 G'zG.SLjHe Na:hhshl;
+100, 0.193099, 3.005422, :ensi oe,y ai as    maHpe ratd\
+200, 0.336133, 2.307774, -goall'd wolg dad thed nnd oun 
+300, 0.406315, 2.064132, 4get muscd bofned afle at te, m
+400, 0.444727, 1.906032, . If slair you, and heameen inj
+500, 0.488281, 1.773615, . Afoly toouse bet hand alongo.
+600, 0.495768, 1.723444, 7 from the Harry spided outhat 
+700, 0.509440, 1.656483, , Harry sufpears logil, got lea
+800, 0.530404, 1.598190, Ad Will bock worr. Now. He cast
+900, 0.541797, 1.550331, I" as her, agood, sarn gliddon 
+1000, 0.554753, 1.507085, tioned Arbum Ron's nokee slippi
+1100, 0.560352, 1.485151, Ganny Pired they know?\" he Bor
+1200, 0.563281, 1.458238, Nivelited Hermione.\"Pregait,\"
+1300, 0.579948, 1.405835, very as She demides in midagget
+1400, 0.580208, 1.406465, Oues. \"It was a moment hair, a
+1500, 0.582292, 1.400590, port. Threungs before he portam
+1600, 0.588346, 1.369790, you....But my falled had closed
+1700, 0.592318, 1.367068, at, shungun issuried in Lord, w
+1800, 0.578581, 1.386068, 7 all at we are, did mittered h
+1900, 0.601042, 1.335202, joy teering, where wo duterned 
+2000, 0.601302, 1.321177, 's sieve hourstions had I knew 
+2100, 0.600391, 1.320819, / hurtling her long, and he had
+2200, 0.594466, 1.327175, from the wand of the faller, Mr
