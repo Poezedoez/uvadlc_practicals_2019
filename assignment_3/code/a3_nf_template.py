@@ -9,6 +9,7 @@ from datasets.mnist import mnist
 import os
 from torchvision.utils import make_grid
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def log_prior(x):
     """
@@ -25,8 +26,7 @@ def sample_prior(size):
     """
     raise NotImplementedError
 
-    if torch.cuda.is_available():
-        sample = sample.cuda()
+    sample.to(DEVICE)
 
     return sample
 
