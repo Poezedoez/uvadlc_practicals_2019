@@ -2,16 +2,35 @@ import argparse
 
 import torch
 import torch.nn as nn
+import numpy as np
+from torch.nn import functional as F
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+from collections import OrderedDict
 
 from datasets.bmnist import bmnist
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Encoder(nn.Module):
 
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
+
+        input_size = 28*28
+
+        self.mu = nn.Sequential(OrderedDict([
+          ('hidden_mu', nn.Linear(input_size, hidden_dim)),
+          ('relu_mu', nn.ReLU()),
+          ('output_mu', nn.Linear(hidden_dim, z_dim))
+        ]))
+
+        self.sigma = nn.Sequential(OrderedDict([
+          ('hidden_sigma', nn.Linear(input_size, hidden_dim)),
+          ('relu_sigma_hidden', nn.ReLU()),
+          ('output_sigma', nn.Linear(hidden_dim, z_dim)),
+          ('relu_sigma_output', nn.ReLU())
+        ]))
 
     def forward(self, input):
         """
@@ -20,8 +39,13 @@ class Encoder(nn.Module):
         Returns mean and std with shape [batch_size, z_dim]. Make sure
         that any constraints are enforced.
         """
-        mean, std = None, None
-        raise NotImplementedError()
+
+        #######################
+        # ENFORCE CONSTRAINTS?
+        #######################
+
+        mean = self.mu(input)
+        std = self.sigma(input)
 
         return mean, std
 
@@ -31,14 +55,22 @@ class Decoder(nn.Module):
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
 
+        output_size = 28*28
+
+        self.decoder = nn.Sequential(OrderedDict([
+          ('hidden', nn.Linear(z_dim, hidden_dim)),
+          ('relu_hidden', nn.ReLU()),
+          ('output', nn.Linear(hidden_dim, output_size)),
+          ('sigmoid_output', nn.Sigmoid())
+        ]))
+
     def forward(self, input):
         """
-        Perform forward pass of encoder.
+        Perform forward pass of decoder.
 
         Returns mean with shape [batch_size, 784].
         """
-        mean = None
-        raise NotImplementedError()
+        mean = self.decoder(input)
 
         return mean
 
@@ -57,9 +89,22 @@ class VAE(nn.Module):
         Given input, perform an encoding and decoding step and return the
         negative average elbo for the given batch.
         """
-        average_negative_elbo = None
-        raise NotImplementedError()
-        return average_negative_elbo
+        mean, std = self.encoder(input)
+        z = mean + std * torch.randn_like(std)
+        reconstruction = self.decoder(z)
+        
+        # Log stability epsilon
+        epsilon = 1e-8
+
+        L_recon = -(input * torch.log(reconstruction) + (1 - input) * torch.log(1 - reconstruction)).sum(dim=1)
+        L_reg = 0.5 * (std**2 + mean**2 - 1 - torch.log(std**2 + epsilon)).sum(dim=1)
+
+        # print("L_recon", L_recon.mean(dim=0))
+        # print("L_reg", L_reg.mean(dim=0))
+
+        average_negative_elbo = (L_recon+L_reg).mean(dim=0)
+
+        return average_negative_elbo, (L_recon.mean(dim=0), L_reg.mean(dim=0))
 
     def sample(self, n_samples):
         """
@@ -67,8 +112,16 @@ class VAE(nn.Module):
         (from bernoulli) and the means for these bernoullis (as these are
         used to plot the data manifold).
         """
-        sampled_ims, im_means = None, None
-        raise NotImplementedError()
+        # noise = torch.randn(n_samples, self.z_dim)).cuda()
+        # probabilities = self.decoder(noise)
+        # bernoullis = [torch.distributions.Bernoulli(p) for p in probabilities]
+        # sampled_ims = [bernoulli.sample() for bernoulli in bernoullis]
+
+        noise = torch.randn(1, self.z_dim).to(DEVICE)
+        probabilities = self.decoder(noise)
+        bernoulli = torch.distributions.Bernoulli(probabilities)
+        sampled_ims = bernoulli.sample(n_samples)
+        im_means = sampled_ims.mean(dim=0)
 
         return sampled_ims, im_means
 
@@ -80,10 +133,34 @@ def epoch_iter(model, data, optimizer):
 
     Returns the average elbo for the complete epoch.
     """
-    average_epoch_elbo = None
-    raise NotImplementedError()
+    elbo_f = train if model.training else test
+    elbos = elbo_f(model, data, optimizer)
+    average_epoch_elbo = torch.stack(elbos).mean(dim=0)
 
     return average_epoch_elbo
+
+def train(model, data, optimizer):
+    train_elbos = []
+    for batch in iter(data):
+        optimizer.zero_grad()
+        train_elbo, losses = model(batch.view(-1, 28*28).to(DEVICE))
+        train_elbos.append(train_elbo)
+        train_elbo.backward()
+        optimizer.step()
+
+    print("Lrecon, Lreg", losses)
+    print("loss", train_elbo.item())
+
+    return train_elbos
+
+def test(model, data, optimizer):
+    test_elbos = []
+    with torch.no_grad(): 
+        for batch in iter(data):
+            test_elbo, losses = model(batch.view(-1, 28*28).to(DEVICE))
+            test_elbos.append(test_elbo)
+    
+    return test_elbos
 
 
 def run_epoch(model, data, optimizer):
@@ -114,7 +191,7 @@ def save_elbo_plot(train_curve, val_curve, filename):
 
 def main():
     data = bmnist()[:2]  # ignore test split
-    model = VAE(z_dim=ARGS.zdim)
+    model = VAE(z_dim=ARGS.zdim).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters())
 
     train_curve, val_curve = [], []
