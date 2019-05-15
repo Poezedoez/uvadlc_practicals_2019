@@ -117,7 +117,8 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             
             # Train Discriminator
             optimizer_D.zero_grad()
-            D_loss = -(torch.log(D(batch)) + torch.log(1 - D(samples))).sum()
+            ## TODO: make it harder for the discriminator
+            D_loss = -(torch.log(D(batch)) - torch.log(1 - D(samples))).sum()
             # print("D_loss", D_loss.item())
             D_loss.backward()
             optimizer_D.step()

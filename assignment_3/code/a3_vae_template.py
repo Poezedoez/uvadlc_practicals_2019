@@ -19,15 +19,17 @@ class Encoder(nn.Module):
 
         input_size = 28*28
 
+        ## Hidden layer is shared between mu and sigma
+        self.hidden = nn.Sequential(OrderedDict([
+          ('linear_hidden', nn.Linear(input_size, hidden_dim)),
+          ('tanh_hidden', nn.Tanh()) ## maybe try RelU
+        ]))
+
         self.mu = nn.Sequential(OrderedDict([
-          ('hidden_mu', nn.Linear(input_size, hidden_dim)),
-          ('relu_mu', nn.ReLU()),
           ('output_mu', nn.Linear(hidden_dim, z_dim))
         ]))
 
         self.sigma = nn.Sequential(OrderedDict([
-          ('hidden_sigma', nn.Linear(input_size, hidden_dim)),
-          ('relu_sigma_hidden', nn.ReLU()),
           ('output_sigma', nn.Linear(hidden_dim, z_dim)),
           ('relu_sigma_output', nn.ReLU())
         ]))
@@ -44,8 +46,9 @@ class Encoder(nn.Module):
         # ENFORCE CONSTRAINTS?
         #######################
 
-        mean = self.mu(input)
-        std = self.sigma(input)
+        hidden = self.hidden(input)
+        mean = self.mu(hidden)
+        std = self.sigma(hidden)
 
         return mean, std
 
@@ -90,14 +93,15 @@ class VAE(nn.Module):
         negative average elbo for the given batch.
         """
         mean, std = self.encoder(input)
-        z = mean + std * torch.randn_like(std)
+        epsilon = torch.randn_like(std)
+        z = mean + std * epsilon
         reconstruction = self.decoder(z)
         
-        # Log stability epsilon
-        epsilon = 1e-8
+        # Log stability
+        stability = 1e-8
 
         L_recon = -(input * torch.log(reconstruction) + (1 - input) * torch.log(1 - reconstruction)).sum(dim=1)
-        L_reg = 0.5 * (std**2 + mean**2 - 1 - torch.log(std**2 + epsilon)).sum(dim=1)
+        L_reg = 0.5 * (std**2 + mean**2 - 1 - torch.log(std**2 + stability)).sum(dim=1)
 
         # print("L_recon", L_recon.mean(dim=0))
         # print("L_reg", L_reg.mean(dim=0))
@@ -195,6 +199,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters())
 
     train_curve, val_curve = [], []
+    samples = []
     for epoch in range(ARGS.epochs):
         elbos = run_epoch(model, data, optimizer)
         train_elbo, val_elbo = elbos
@@ -206,6 +211,7 @@ def main():
         #  Add functionality to plot samples from model during training.
         #  You can use the make_grid functioanlity that is already imported.
         # --------------------------------------------------------------------
+        img = torchvision.utils.make_grid(batch, nrow=5)
 
     # --------------------------------------------------------------------
     #  Add functionality to plot plot the learned data manifold after
