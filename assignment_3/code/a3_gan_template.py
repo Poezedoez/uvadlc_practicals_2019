@@ -7,6 +7,8 @@ import torchvision.transforms as transforms
 from torchvision.utils import save_image
 from torchvision import datasets
 from collections import OrderedDict
+import matplotlib.pyplot as plt
+import numpy as np
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -51,6 +53,7 @@ class Generator(nn.Module):
         ]))
         self.linear_layer5 = nn.Sequential(OrderedDict([
           ('linear5', nn.Linear(1024, 28*28)),
+          ('batch5', nn.BatchNorm1d(28*28)),
           ('tanh5', nn.Tanh())
         ]))
 
@@ -101,33 +104,46 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     D = discriminator.to(DEVICE)
     G = generator.to(DEVICE)
 
+    # Log stability
+    stability = 1e-8
+    max_loss = 1000
+    G_losses_epoch = []
+    D_losses_epoch = []    
+
     for epoch in range(args.n_epochs):
+
+        G_losses_batch = []
+        D_losses_batch = []
+
         for i, (imgs, _) in enumerate(dataloader):
 
             batch = imgs.view(-1, 28*28).to(DEVICE)
-            noise = torch.randn((batch.shape[0], args.latent_dim)).to(DEVICE)
-            samples = G(noise)
+            z = torch.randn((batch.shape[0], args.latent_dim)).to(DEVICE)
+            samples = G(z)
+            criterion = nn.BCELoss(reduction="mean")
 
             # Train Generator
             optimizer_G.zero_grad()
-            G_loss = -torch.log(D(samples)).sum()
-            # print("G_loss", G_loss.item())
+            G_targets = torch.ones(batch.shape[0]).to(DEVICE)
+            G_loss = criterion(D(samples), G_targets)
+            G_loss.clamp(min=stability, max=max_loss)
+            G_losses_batch.append(G_loss.item())
             G_loss.backward(retain_graph=True)
             optimizer_G.step()
             
             # Train Discriminator
             optimizer_D.zero_grad()
             ## TODO: make it harder for the discriminator
-            D_loss = -(torch.log(D(batch)) - torch.log(1 - D(samples))).sum()
-            # print("D_loss", D_loss.item())
+            D_targets_real = torch.normal(torch.ones(batch.shape[0]), torch.ones(batch.shape[0])*0.3).to(DEVICE)
+            D_targets_fake = torch.normal(torch.zeros(batch.shape[0]), torch.ones(batch.shape[0])*0.3).to(DEVICE)
+            D_loss = criterion(D(batch), D_targets_real) + criterion(D(samples), D_targets_fake)
+            D_loss.clamp(min=stability, max=max_loss)
+            D_losses_batch.append(D_loss.item())
             D_loss.backward()
             optimizer_D.step()
 
-            # Save Images
-            # -----------
             batches_done = epoch * len(dataloader) + i
             if batches_done % args.save_interval == 0:
-                print(batches_done, "batches done")
                 # You can use the function save_image(Tensor (shape Bx1x28x28),
                 # filename, number of rows, normalize) to save the generated
                 # images, e.g.:
@@ -135,6 +151,26 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
                            'images/{}.png'.format(batches_done),
                            nrow=5, normalize=True)
 
+        G_loss_epoch = np.mean(G_losses_batch)
+        D_loss_epoch = np.mean(D_losses_batch)
+        G_losses_epoch.append(G_loss_epoch)
+        D_losses_epoch.append(D_loss_epoch)
+        print("epoch {}...".format(epoch))
+        print("G_loss_epoch", G_loss_epoch)
+        print("D_loss_epoch", D_loss_epoch)
+    
+    save_training_plot(G_losses_epoch, D_losses_epoch, "gan_training.pdf")
+
+
+def save_training_plot(G_losses, D_losses, filename):
+    plt.figure(figsize=(12, 6))
+    plt.plot(G_losses, label='generator loss')
+    plt.plot(D_losses, label='discriminator loss')
+    plt.legend()
+    plt.xlabel('epochs')
+    plt.ylabel('loss')
+    plt.tight_layout()
+    plt.savefig(filename)
 
 def main():
     # Create output image directory

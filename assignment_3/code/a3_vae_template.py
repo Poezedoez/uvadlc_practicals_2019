@@ -6,11 +6,13 @@ import numpy as np
 from torch.nn import functional as F
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+from torchvision.utils import save_image
 from collections import OrderedDict
 
 from datasets.bmnist import bmnist
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MAX_NORM = 5.0
 
 class Encoder(nn.Module):
 
@@ -100,34 +102,26 @@ class VAE(nn.Module):
         # Log stability
         stability = 1e-8
 
-        L_recon = -(input * torch.log(reconstruction) + (1 - input) * torch.log(1 - reconstruction)).sum(dim=1)
+        L_recon = -(input * torch.log((reconstruction+stability)) + (1 - input) * torch.log(1 - (reconstruction+stability))).sum(dim=1)
         L_reg = 0.5 * (std**2 + mean**2 - 1 - torch.log(std**2 + stability)).sum(dim=1)
-
-        # print("L_recon", L_recon.mean(dim=0))
-        # print("L_reg", L_reg.mean(dim=0))
 
         average_negative_elbo = (L_recon+L_reg).mean(dim=0)
 
-        return average_negative_elbo, (L_recon.mean(dim=0), L_reg.mean(dim=0))
+        return average_negative_elbo
 
-    def sample(self, n_samples):
+    def sample(self, n_samples, z=None):
         """
         Sample n_samples from the model. Return both the sampled images
         (from bernoulli) and the means for these bernoullis (as these are
         used to plot the data manifold).
         """
-        # noise = torch.randn(n_samples, self.z_dim)).cuda()
-        # probabilities = self.decoder(noise)
-        # bernoullis = [torch.distributions.Bernoulli(p) for p in probabilities]
-        # sampled_ims = [bernoulli.sample() for bernoulli in bernoullis]
 
-        noise = torch.randn(1, self.z_dim).to(DEVICE)
-        probabilities = self.decoder(noise)
-        bernoulli = torch.distributions.Bernoulli(probabilities)
-        sampled_ims = bernoulli.sample(n_samples)
+        if not torch.is_tensor(z):
+            z = torch.randn((n_samples, self.z_dim)).to(DEVICE)
+        sampled_ims = self.decoder(z)
         im_means = sampled_ims.mean(dim=0)
 
-        return sampled_ims, im_means
+        return sampled_ims.view(-1, 1, 28, 28), im_means.view(1, 1, 28, 28)
 
 
 def epoch_iter(model, data, optimizer):
@@ -147,13 +141,11 @@ def train(model, data, optimizer):
     train_elbos = []
     for batch in iter(data):
         optimizer.zero_grad()
-        train_elbo, losses = model(batch.view(-1, 28*28).to(DEVICE))
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=MAX_NORM)
+        train_elbo = model(batch.view(-1, 28*28).to(DEVICE))
         train_elbos.append(train_elbo)
         train_elbo.backward()
         optimizer.step()
-
-    print("Lrecon, Lreg", losses)
-    print("loss", train_elbo.item())
 
     return train_elbos
 
@@ -161,7 +153,7 @@ def test(model, data, optimizer):
     test_elbos = []
     with torch.no_grad(): 
         for batch in iter(data):
-            test_elbo, losses = model(batch.view(-1, 28*28).to(DEVICE))
+            test_elbo = model(batch.view(-1, 28*28).to(DEVICE))
             test_elbos.append(test_elbo)
     
     return test_elbos
@@ -199,7 +191,6 @@ def main():
     optimizer = torch.optim.Adam(model.parameters())
 
     train_curve, val_curve = [], []
-    samples = []
     for epoch in range(ARGS.epochs):
         elbos = run_epoch(model, data, optimizer)
         train_elbo, val_elbo = elbos
@@ -211,13 +202,27 @@ def main():
         #  Add functionality to plot samples from model during training.
         #  You can use the make_grid functioanlity that is already imported.
         # --------------------------------------------------------------------
-        img = torchvision.utils.make_grid(batch, nrow=5)
-
+        ims_per_row = 5
+        sampled_ims, _ = model.sample(ims_per_row*ims_per_row)
+        grid = make_grid(sampled_ims, nrow=ims_per_row)
+        save_image(grid, 'images_vae/epoch{}_{}z.png'.format(epoch, ARGS.zdim), normalize=True)
+        
+    torch.save(model.state_dict(), "models/VAE_{}epochs_{}z.pt".format(ARGS.epochs, ARGS.zdim))
     # --------------------------------------------------------------------
     #  Add functionality to plot plot the learned data manifold after
     #  if required (i.e., if zdim == 2). You can use the make_grid
     #  functionality that is already imported.
     # --------------------------------------------------------------------
+    if ARGS.zdim == 2:
+        with torch.no_grad():
+            steps = 20
+            interpolations = torch.linspace(0, 1, steps)
+            # Basically use adaptation of torch.distributions.icdf here for manifold z's
+            z_tensors = [torch.erfinv(2 * torch.tensor([x, y]) - 1) * np.sqrt(2) for x in interpolations for y in interpolations]
+            z = torch.stack(z_tensors).to(DEVICE)
+            manifold, _ = model.sample(1, z)
+            image = make_grid(manifold, nrow = steps)
+            save_image(image, "images_vae/manifold.pdf")
 
     save_elbo_plot(train_curve, val_curve, 'elbo.pdf')
 
