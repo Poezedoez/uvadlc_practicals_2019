@@ -105,8 +105,8 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     G = generator.to(DEVICE)
 
     # Log stability
-    stability = 1e-8
-    max_loss = 1000
+    # stability = 1e-8
+    # max_loss = 1000
     G_losses_epoch = []
     D_losses_epoch = []    
 
@@ -120,24 +120,23 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             batch = imgs.view(-1, 28*28).to(DEVICE)
             z = torch.randn((batch.shape[0], args.latent_dim)).to(DEVICE)
             samples = G(z)
-            criterion = nn.BCELoss(reduction="mean")
+            criterion = nn.BCELoss()
 
             # Train Generator
             optimizer_G.zero_grad()
             G_targets = torch.ones(batch.shape[0]).to(DEVICE)
             G_loss = criterion(D(samples), G_targets)
-            G_loss.clamp(min=stability, max=max_loss)
+            # G_loss.clamp(min=stability, max=max_loss)
             G_losses_batch.append(G_loss.item())
             G_loss.backward(retain_graph=True)
             optimizer_G.step()
             
             # Train Discriminator
             optimizer_D.zero_grad()
-            ## TODO: make it harder for the discriminator
-            D_targets_real = torch.normal(torch.ones(batch.shape[0]), torch.ones(batch.shape[0])*0.3).to(DEVICE)
-            D_targets_fake = torch.normal(torch.zeros(batch.shape[0]), torch.ones(batch.shape[0])*0.3).to(DEVICE)
+            D_targets_real = torch.uniform_(torch.ones(batch.shape[0]), low=0.7, high=1.3).to(DEVICE)
+            D_targets_fake = torch.uniform_(torch.zeros(batch.shape[0]), low=-0.3, high=0.3).to(DEVICE)
             D_loss = criterion(D(batch), D_targets_real) + criterion(D(samples), D_targets_fake)
-            D_loss.clamp(min=stability, max=max_loss)
+            # D_loss.clamp(min=stability, max=max_loss)
             D_losses_batch.append(D_loss.item())
             D_loss.backward()
             optimizer_D.step()

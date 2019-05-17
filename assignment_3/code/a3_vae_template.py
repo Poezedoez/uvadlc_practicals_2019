@@ -118,8 +118,8 @@ class VAE(nn.Module):
 
         if not torch.is_tensor(z):
             z = torch.randn((n_samples, self.z_dim)).to(DEVICE)
-        sampled_ims = self.decoder(z)
-        im_means = sampled_ims.mean(dim=0)
+        im_means = self.decoder(z)
+        sampled_ims = torch.bernoulli(im_means)
 
         return sampled_ims.view(-1, 1, 28, 28), im_means.view(1, 1, 28, 28)
 
@@ -216,12 +216,12 @@ def main():
     if ARGS.zdim == 2:
         with torch.no_grad():
             steps = 20
-            interpolations = torch.linspace(0, 1, steps)
+            density_point = torch.linspace(0, 1, steps)
             # Basically use adaptation of torch.distributions.icdf here for manifold z's
-            z_tensors = [torch.erfinv(2 * torch.tensor([x, y]) - 1) * np.sqrt(2) for x in interpolations for y in interpolations]
+            z_tensors = [torch.erfinv(2 * torch.tensor([x, y]) - 1) * np.sqrt(2) for x in density_point for y in density_point]
             z = torch.stack(z_tensors).to(DEVICE)
-            manifold, _ = model.sample(1, z)
-            image = make_grid(manifold, nrow = steps)
+            _, manifold = model.sample(1, z)
+            image = make_grid(manifold, nrow=steps)
             save_image(image, "images_vae/manifold.pdf")
 
     save_elbo_plot(train_curve, val_curve, 'elbo.pdf')
