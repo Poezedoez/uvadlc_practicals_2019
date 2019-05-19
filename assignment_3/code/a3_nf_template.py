@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import numpy as np
 from datasets.mnist import mnist
 import os
+from collections import OrderedDict
 from torchvision.utils import make_grid
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,7 +17,10 @@ def log_prior(x):
     Compute the elementwise log probability of a standard Gaussian, i.e.
     N(x | mu=0, sigma=1).
     """
-    raise NotImplementedError
+
+    pi = torch.tensor(np.pi)
+    logp = -0.5 * x**2 - torch.log(1/torch.sqrt(2*pi))
+
     return logp
 
 
@@ -24,9 +28,10 @@ def sample_prior(size):
     """
     Sample from a standard Gaussian.
     """
-    raise NotImplementedError
 
-    sample.to(DEVICE)
+    mean = torch.zeros(size)
+    std = torch.ones(size)
+    sample = torch.normal(mean, std).to(DEVICE)
 
     return sample
 
@@ -55,14 +60,31 @@ class Coupling(torch.nn.Module):
         # Create shared architecture to generate both the translation and
         # scale variables.
         # Suggestion: Linear ReLU Linear ReLU Linear.
-        self.nn = torch.nn.Sequential(
-            None
-            )
+
+        self.hidden = nn.Sequential(OrderedDict([
+            ("linear1", nn.Linear(c_in, n_hidden)),
+            ("relu1" , nn.ReLU()),
+            ("linear2", nn.Linear(n_hidden, n_hidden)),
+            ("relu2", nn.ReLU())
+            ]))
+
+        self.translation = nn.Sequential(OrderedDict([
+            ("linear1", nn.Linear(n_hidden, c_in))
+            ]))
+        
+        self.scale = torch.nn.Sequential(OrderedDict([
+            ("linear1", nn.Linear(n_hidden, c_in)),
+            ("tanh1" , nn.Tanh()) # range [-1, 1] and log scale
+            ]))
+
+                                            
 
         # The nn should be initialized such that the weights of the last layer
         # is zero, so that its initial transform is identity.
-        self.nn[-1].weight.data.zero_()
-        self.nn[-1].bias.data.zero_()
+        self.translation['linear1'].weight.data_zero_()
+        self.translation['linear1'].bias.data_zero_()
+        self.scale['linear1'].weight.data_zero_()
+        self.scale['linear1'].bias.data_zero_()
 
     def forward(self, z, ldj, reverse=False):
         # Implement the forward and inverse for an affine coupling layer. Split
@@ -74,10 +96,20 @@ class Coupling(torch.nn.Module):
         # log_scale = tanh(h), where h is the scale-output
         # from the NN.
 
+        mask = self.mask # 1:d
+        inverse_mask = (1-self.mask) # d+1:D
+        hidden = self.hidden(masked_z)
+        t = self.translation(hidden)
+        s = self.scale(hidden)
+
         if not reverse:
-            raise NotImplementedError
+            transformation = inverse_mask*z * torch.exp(s) + t
+            z = mask*z + transformation
+            ldj += torch.sum(inverse_mask*s, dim=1)
         else:
-            raise NotImplementedError
+            transformation = inverse_mask * (z-t) * torch.exp(-s)
+            z = mask*z + transformation
+            ldj += torch.sum(inverse_mask*-s, dim=1) # don't know, not mentioned in post
 
         return z, ldj
 

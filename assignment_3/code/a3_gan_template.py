@@ -32,6 +32,8 @@ class Generator(nn.Module):
         #   Linear 1024 -> 768
         #   Output non-linearity
 
+        self.latent_dim = args.latent_dim
+
         self.linear_layer1 = nn.Sequential(OrderedDict([
           ('linear1', nn.Linear(args.latent_dim, 128)),
           ('lrelu1', nn.LeakyReLU(0.2))
@@ -105,8 +107,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     G = generator.to(DEVICE)
 
     # Log stability
-    # stability = 1e-8
-    # max_loss = 1000
+    max_loss = 100
     G_losses_epoch = []
     D_losses_epoch = []    
 
@@ -119,27 +120,33 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
             batch = imgs.view(-1, 28*28).to(DEVICE)
             z = torch.randn((batch.shape[0], args.latent_dim)).to(DEVICE)
-            samples = G(z)
             criterion = nn.BCELoss()
+            samples = G(z)
+
+            D_real = D(batch)
+            D_fake = D(samples)
 
             # Train Generator
-            optimizer_G.zero_grad()
-            G_targets = torch.ones(batch.shape[0]).to(DEVICE)
-            G_loss = criterion(D(samples), G_targets)
-            # G_loss.clamp(min=stability, max=max_loss)
+            G_targets = torch.ones(D_fake.shape).to(DEVICE)
+            G_loss = criterion(D_fake, G_targets)
             G_losses_batch.append(G_loss.item())
+            
+            optimizer_G.zero_grad()
             G_loss.backward(retain_graph=True)
             optimizer_G.step()
             
             # Train Discriminator
-            optimizer_D.zero_grad()
-            D_targets_real = torch.uniform_(torch.ones(batch.shape[0]), low=0.7, high=1.3).to(DEVICE)
-            D_targets_fake = torch.uniform_(torch.zeros(batch.shape[0]), low=-0.3, high=0.3).to(DEVICE)
-            D_loss = criterion(D(batch), D_targets_real) + criterion(D(samples), D_targets_fake)
-            # D_loss.clamp(min=stability, max=max_loss)
+            # D_targets_real = torch.ones(D_real.shape).uniform_(0.7, 1.3).to(DEVICE)
+            # D_targets_fake = torch.zeros(D_fake.shape).uniform_(-0.3, 0.3).to(DEVICE)
+            D_targets_real = torch.ones(D_real.shape).to(DEVICE)
+            D_targets_fake = torch.zeros(D_fake.shape).to(DEVICE)
+            D_loss = criterion(D_real, D_targets_real) + criterion(D_fake, D_targets_fake)
             D_losses_batch.append(D_loss.item())
-            D_loss.backward()
-            optimizer_D.step()
+
+            if D_loss.item() > 0.1:
+              optimizer_D.zero_grad()
+              D_loss.backward()
+              optimizer_D.step()
 
             batches_done = epoch * len(dataloader) + i
             if batches_done % args.save_interval == 0:
@@ -160,7 +167,6 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     
     save_training_plot(G_losses_epoch, D_losses_epoch, "gan_training.pdf")
 
-
 def save_training_plot(G_losses, D_losses, filename):
     plt.figure(figsize=(12, 6))
     plt.plot(G_losses, label='generator loss')
@@ -170,6 +176,22 @@ def save_training_plot(G_losses, D_losses, filename):
     plt.ylabel('loss')
     plt.tight_layout()
     plt.savefig(filename)
+
+## Run interpolation between two digits in latent space
+def interpolate(generator, steps=9):
+    z1 = torch.randn(generator.latent_dim)
+    z2 = torch.randn(generator.latent_dim)
+    z_step = z1-z2/steps
+    zs = [z1-(z_step*step) for step in range(0, steps)]
+    z = torch.stack(zs).to(DEVICE)
+    print(z.shape)
+
+    interpolation = generator(z)
+
+    save_image(interpolation.view(-1, 1, 28, 28),
+            'images_gan/interpolation.png',
+            nrow=9, normalize=True)
+
 
 def main():
     # Create output image directory
@@ -185,17 +207,25 @@ def main():
         batch_size=args.batch_size, shuffle=True)
 
     # Initialize models and optimizers
-    generator = Generator()
+    generator = Generator().to(DEVICE)
     discriminator = Discriminator()
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=args.lr)
     optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=args.lr)
 
     # Start training
-    train(dataloader, discriminator, generator, optimizer_G, optimizer_D)
+    # train(dataloader, discriminator, generator, optimizer_G, optimizer_D)
 
     # You can save your generator here to re-use it to generate images for your
     # report, e.g.:
-    torch.save(generator.state_dict(), "mnist_generator.pt")
+    # torch.save(generator.state_dict(), "mnist_generator.pt")
+
+    state_dict = torch.load("mnist_generator.pt")
+    generator.load_state_dict(state_dict)
+    generator.eval()
+
+
+    interpolate(generator)
+
 
 
 if __name__ == "__main__":
