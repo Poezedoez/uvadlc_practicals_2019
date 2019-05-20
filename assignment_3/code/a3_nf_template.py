@@ -19,7 +19,8 @@ def log_prior(x):
     """
 
     pi = torch.tensor(np.pi)
-    logp = -0.5 * x**2 - torch.log(1/torch.sqrt(2*pi))
+    logp_pixels = -0.5 * x**2 - torch.log(1/torch.sqrt(2*pi))
+    logp = torch.sum(logp_pixels, dim=1) # logp as scalar per example
 
     return logp
 
@@ -69,22 +70,21 @@ class Coupling(torch.nn.Module):
             ]))
 
         self.translation = nn.Sequential(OrderedDict([
-            ("linear1", nn.Linear(n_hidden, c_in))
+            ("linear", nn.Linear(n_hidden, c_in))
             ]))
         
         self.scale = torch.nn.Sequential(OrderedDict([
-            ("linear1", nn.Linear(n_hidden, c_in)),
-            ("tanh1" , nn.Tanh()) # range [-1, 1] and log scale
+            ("linear", nn.Linear(n_hidden, c_in)),
+            ("tanh" , nn.Tanh()) # range [-1, 1] and log scale
             ]))
 
-                                            
-
+                                        
         # The nn should be initialized such that the weights of the last layer
         # is zero, so that its initial transform is identity.
-        self.translation['linear1'].weight.data_zero_()
-        self.translation['linear1'].bias.data_zero_()
-        self.scale['linear1'].weight.data_zero_()
-        self.scale['linear1'].bias.data_zero_()
+        self.translation._modules['linear'].weight.data.zero_()
+        self.translation._modules['linear'].bias.data.zero_()
+        self.scale._modules['linear'].weight.data.zero_()
+        self.scale._modules['linear'].bias.data.zero_()
 
     def forward(self, z, ldj, reverse=False):
         # Implement the forward and inverse for an affine coupling layer. Split
@@ -98,9 +98,9 @@ class Coupling(torch.nn.Module):
 
         mask = self.mask # 1:d
         inverse_mask = (1-self.mask) # d+1:D
-        hidden = self.hidden(masked_z)
+        hidden = self.hidden(mask*z)
         t = self.translation(hidden)
-        s = self.scale(hidden)
+        s = torch.exp(self.scale(hidden))
 
         if not reverse:
             transformation = inverse_mask*z * torch.exp(s) + t
@@ -109,8 +109,8 @@ class Coupling(torch.nn.Module):
         else:
             transformation = inverse_mask * (z-t) * torch.exp(-s)
             z = mask*z + transformation
-            ldj += torch.sum(inverse_mask*-s, dim=1) # don't know, not mentioned in post
-
+            ldj += torch.sum(inverse_mask*-s, dim=1) # don't know, not mentioned in post/paper
+        
         return z, ldj
 
 
@@ -123,7 +123,7 @@ class Flow(nn.Module):
 
         self.layers = torch.nn.ModuleList()
 
-        for i in range(n_flows):
+        for _ in range(n_flows):
             self.layers.append(Coupling(c_in=channels, mask=mask))
             self.layers.append(Coupling(c_in=channels, mask=1-mask))
 
@@ -188,8 +188,8 @@ class Model(nn.Module):
         z, ldj = self.flow(z, ldj)
 
         # Compute log_pz and log_px per example
-
-        raise NotImplementedError
+        log_pz = log_prior(z)
+        log_px = log_pz + ldj
 
         return log_px
 
@@ -201,8 +201,14 @@ class Model(nn.Module):
         z = sample_prior((n_samples,) + self.flow.z_shape)
         ldj = torch.zeros(z.size(0), device=z.device)
 
-        raise NotImplementedError
+        # forward
+        z, ldj = self.logit_normalize(z, ldj)
+        z, ldj = self.flow(z, ldj)
 
+        # reverse
+        z, ldj = self.flow(z, ldj, reverse=True)
+        z, _ = self.logit_normalize(z, ldj, reverse=True)
+        
         return z
 
 
@@ -215,7 +221,27 @@ def epoch_iter(model, data, optimizer):
     log_2 likelihood per dimension) averaged over the complete epoch.
     """
 
-    avg_bpd = None
+    likelihood = 0
+
+    for i, (x, _) in enumerate(data):
+
+        ## TODO: flip pixel values?
+        
+        log_px = model(x.to(DEVICE))
+
+        # average negative log likelihood of batch as loss
+        loss = -log_px.mean()
+
+        if model.training:
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            optimizer.step()
+
+        likelihood += loss.item()
+
+    # change log base, average over dimensions, average over epoch
+    avg_bpd = likelihood/(np.log(2)*x.shape[1]*(i+1))
 
     return avg_bpd
 
@@ -250,10 +276,8 @@ def main():
     data = mnist()[:2]  # ignore test split
 
     model = Model(shape=[784])
-
-    if torch.cuda.is_available():
-        model = model.cuda()
-
+    model.to(DEVICE)
+    
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     os.makedirs('images_nfs', exist_ok=True)
@@ -266,12 +290,12 @@ def main():
         val_curve.append(val_bpd)
         print("[Epoch {epoch}] train bpd: {train_bpd} val_bpd: {val_bpd}".format(
             epoch=epoch, train_bpd=train_bpd, val_bpd=val_bpd))
-
-        # --------------------------------------------------------------------
-        #  Add functionality to plot samples from model during training.
-        #  You can use the make_grid functionality that is already imported.
-        #  Save grid to images_nfs/
-        # --------------------------------------------------------------------
+        
+        with torch.no_grad():
+            n_samples = 25
+            samples = model.sample(n_samples).to('cpu')
+            grid = make_grid(samples.reshape(n_samples, 1, 28, 28), nrow=5, normalize=True).permute(1, 2, 0)
+            plt.imsave(f"images_nfs/epoch{epoch}", grid)
 
     save_bpd_plot(train_curve, val_curve, 'nfs_bpd.pdf')
 
