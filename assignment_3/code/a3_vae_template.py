@@ -190,6 +190,8 @@ def main():
     model = VAE(z_dim=ARGS.zdim).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters())
 
+    os.makedirs('images_vae', exist_ok=True)
+
     train_curve, val_curve = [], []
     for epoch in range(ARGS.epochs):
         elbos = run_epoch(model, data, optimizer)
@@ -216,9 +218,9 @@ def main():
     if ARGS.zdim == 2:
         with torch.no_grad():
             steps = 20
-            density_point = torch.linspace(0, 1, steps)
+            density_points = torch.linspace(0, 1, steps)
             # Basically use adaptation of torch.distributions.icdf here for manifold z's
-            z_tensors = [torch.erfinv(2 * torch.tensor([x, y]) - 1) * np.sqrt(2) for x in density_point for y in density_point]
+            z_tensors = [torch.erfinv(2 * torch.tensor([x, y]) - 1) * np.sqrt(2) for x in density_points for y in density_points]
             z = torch.stack(z_tensors).to(DEVICE)
             _, manifold = model.sample(1, z)
             image = make_grid(manifold, nrow=steps)

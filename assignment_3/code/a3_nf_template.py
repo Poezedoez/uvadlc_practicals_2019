@@ -17,9 +17,12 @@ def log_prior(x):
     Compute the elementwise log probability of a standard Gaussian, i.e.
     N(x | mu=0, sigma=1).
     """
+    # log(exp(-(x-mu)^2/2sigma^2)) = -0.5*x**2
+    # log(1/sigma*sqrt(2pi)) = log(1) - log(sigma*sqrt(2pi))
+    # = 0 -(log(1) + log(sqrt(2pi)))
 
     pi = torch.tensor(np.pi)
-    logp_pixels = -0.5 * x**2 - torch.log(1/torch.sqrt(2*pi))
+    logp_pixels = -0.5*x**2 - torch.log(torch.sqrt(2*pi))
     logp = torch.sum(logp_pixels, dim=1) # logp as scalar per example
 
     return logp
@@ -29,10 +32,8 @@ def sample_prior(size):
     """
     Sample from a standard Gaussian.
     """
-
-    mean = torch.zeros(size)
-    std = torch.ones(size)
-    sample = torch.normal(mean, std).to(DEVICE)
+    # torch.randn(s) samples from N(0, 1), size s
+    sample = torch.randn(size).to(DEVICE)
 
     return sample
 
@@ -100,17 +101,16 @@ class Coupling(torch.nn.Module):
         inverse_mask = (1-self.mask) # d+1:D
         hidden = self.hidden(mask*z)
         t = self.translation(hidden)
-        s = torch.exp(self.scale(hidden))
+        s = self.scale(hidden)
 
         if not reverse:
-            transformation = inverse_mask*z * torch.exp(s) + t
-            z = mask*z + transformation
-            ldj += torch.sum(inverse_mask*s, dim=1)
+            transformation = inverse_mask * (z*torch.exp(s)+t)
         else:
             transformation = inverse_mask * (z-t) * torch.exp(-s)
-            z = mask*z + transformation
-            ldj += torch.sum(inverse_mask*-s, dim=1) # don't know, not mentioned in post/paper
-        
+
+        z = mask*z + transformation
+        ldj += torch.sum(inverse_mask*s, dim=1)
+
         return z, ldj
 
 
@@ -184,12 +184,11 @@ class Model(nn.Module):
 
         z = self.dequantize(z)
         z, ldj = self.logit_normalize(z, ldj)
-
         z, ldj = self.flow(z, ldj)
 
         # Compute log_pz and log_px per example
         log_pz = log_prior(z)
-        log_px = log_pz + ldj
+        log_px = ldj + log_pz 
 
         return log_px
 
@@ -198,12 +197,8 @@ class Model(nn.Module):
         Sample n_samples from the model. Sample from prior and create ldj.
         Then invert the flow and invert the logit_normalize.
         """
-        z = sample_prior((n_samples,) + self.flow.z_shape)
+        z = sample_prior((n_samples,) + self.flow.z_shape).to(DEVICE)
         ldj = torch.zeros(z.size(0), device=z.device)
-
-        # forward
-        z, ldj = self.logit_normalize(z, ldj)
-        z, ldj = self.flow(z, ldj)
 
         # reverse
         z, ldj = self.flow(z, ldj, reverse=True)
@@ -221,12 +216,10 @@ def epoch_iter(model, data, optimizer):
     log_2 likelihood per dimension) averaged over the complete epoch.
     """
 
-    likelihood = 0
+    likelihood = 0.0
 
     for i, (x, _) in enumerate(data):
 
-        ## TODO: flip pixel values?
-        
         log_px = model(x.to(DEVICE))
 
         # average negative log likelihood of batch as loss
